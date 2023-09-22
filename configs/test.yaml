@@ -1,0 +1,3 @@
+data_dir: /path/to/staging/data
+log_level: INFO
+api_key: ABCDEFGHIJKLMNOPQRSTUVWXYZ
