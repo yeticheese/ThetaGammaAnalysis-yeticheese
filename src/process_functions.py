@@ -6,11 +6,20 @@ import pandas as pd
 
 def dict_write(rem_dict, header_dict, write_filename):
     """
+    A function to write dictionaries to the target location
 
-    :param rem_dict:
-    :param header_dict:
-    :param write_filename:
-    :return:
+    Parameters:
+
+    rem_dict : dict
+    A nested dictionary containing metadata of each REM state
+
+    header_dict: dict
+    A dictionary to be added to as a header to rem_dict. This dictionary contains header info such as rat
+    details and testing conditions
+
+    write_filename: str
+    Path string passed through where file should be written and saved as
+
     """
     rem_record = header_dict
     rem_record.update(rem_dict)

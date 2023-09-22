@@ -1,0 +1,9 @@
+PyYAML>=6.0
+scipy>=1.10.1
+h5py>=3.8.0
+numpy>=1.24.3
+pandas>=2.0.1
+emd>=0.6.2
+pingouin>=0.5.3
+sails>=1.4.0
+scikit-image>=0.21.0
