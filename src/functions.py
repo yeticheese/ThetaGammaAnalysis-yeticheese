@@ -45,23 +45,20 @@ def morlet_wt(x, sample_rate, frequencies=np.arange(1, 200, 1), n=5, mode='compl
     """
         Compute the Morlet Wavelet Transform of a signal.
 
-        Parameters:
-        x (numpy.ndarray): The input signal for which the Morlet Wavelet Transform is computed.
-        sample_rate (int or float): The sampling rate of the input signal.
-        frequencies (numpy.ndarray, optional): An array of frequencies at which to compute the wavelet transform.
-            Default is a range from 1 to 200 Hz with a step of 1 Hz.
-        n (int, optional): The number of cycles of the Morlet wavelet. Default is 5.
-        mode (str, optional): The return mode for the wavelet transform. Options are 'complex' (default),'amplitude', and 'power'.
+        Parameters: x (numpy.ndarray): The input signal for which the Morlet Wavelet Transform is computed.
+        sample_rate (int or float): The sampling rate of the input signal. frequencies (numpy.ndarray, optional): An
+        array of frequencies at which to compute the wavelet transform. Default is a range from 1 to 200 Hz with a
+        step of 1 Hz. n (int, optional): The number of cycles of the Morlet wavelet. Default is 5. mode (str,
+        optional): The return mode for the wavelet transform. Options are 'complex' (default),'amplitude', and 'power'.
 
         Returns:
         numpy.ndarray: The Morlet Wavelet Transform of the input signal.
 
-        Notes:
-        - This function computes the Morlet Wavelet Transform of a given signal.
-        - The wavelet transform is computed at specified frequencies.
-        - The number of cycles for the Morlet wavelet can be adjusted using the 'n' parameter.
-        - The result can be returned in either complex or magnitude form either as amplitude or power, as specified by the 'mode' parameter.
-        """
+        Notes: - This function computes the Morlet Wavelet Transform of a given signal. - The wavelet transform is
+        computed at specified frequencies. - The number of cycles for the Morlet wavelet can be adjusted using the
+        'n' parameter. - The result can be returned in either complex or magnitude form either as amplitude or power,
+        as specified by the 'mode' parameter.
+    """
     wavelet_transform = sails.wavelet.morlet(x, freqs=frequencies, sample_rate=sample_rate, ncycles=n,
                                              ret_mode=mode, normalise=None)
     return wavelet_transform
@@ -79,11 +76,10 @@ def tg_split(mask_freq, theta_range=(5, 12)):
         Returns:
         tuple: A tuple containing boolean masks for sub-theta, theta, and supra-theta frequency components.
 
-        Notes:
-        - This function splits a frequency mask into three components based on a specified theta frequency range.
-        - The theta frequency range is defined by the 'theta_range' parameter.
-        - The resulting masks 'sub', 'theta', and 'supra' represent sub-theta, theta, and supra-theta frequency components.
-        """
+        Notes: - This function splits a frequency mask into three components based on a specified theta frequency
+        range. - The theta frequency range is defined by the 'theta_range' parameter. - The resulting masks 'sub',
+        'theta', and 'supra' represent sub-theta, theta, and supra-theta frequency components.
+    """
     lower = np.min(theta_range)
     upper = np.max(theta_range)
     mask_index = np.logical_and(mask_freq >= lower, mask_freq < upper)
@@ -146,7 +142,7 @@ def extrema(x):
     return zero_xs, troughs, peaks
 
 
-def get_cycles_data(x, rem_states, sample_rate, theta_range=(5, 12)):
+def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)):
     """
     Generate a nested dictionary containing extracted data and desired metadata of each REM epochs in the input sleep
     signal
@@ -179,6 +175,7 @@ def get_cycles_data(x, rem_states, sample_rate, theta_range=(5, 12)):
     consecutive_rem_states = get_rem_states(rem_states, sample_rate)
 
     # Intializing variables
+    wt_spectrum = []
     rem_imf = []
     rem_mask_freq = []
     instantaneous_phase = []
@@ -197,6 +194,10 @@ def get_cycles_data(x, rem_states, sample_rate, theta_range=(5, 12)):
         end = int(rem[1])
         signal = x[start:end]
 
+        # Generate the time-frequency power spectrum
+
+        wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
+
         # Extraction of IMFs and IMF Frequencies for current REM epoch
         imf, mask_freq = sift.iterated_mask_sift(signal,
                                                  mask_0='zc',
@@ -209,6 +210,7 @@ def get_cycles_data(x, rem_states, sample_rate, theta_range=(5, 12)):
         # Identify sub-theta, theta, and supra-theta frequencies
         sub_theta, theta, _ = tg_split(mask_freq, theta_range)
 
+        wt_spectrum.append(wavelet_transform)
         rem_imf.append(imf)
         rem_mask_freq.append(mask_freq)
         instantaneous_phase.append(IP)
@@ -283,6 +285,7 @@ def get_cycles_data(x, rem_states, sample_rate, theta_range=(5, 12)):
     # Place outputs in a nested dictionary
     for j, rem in enumerate(rem_dict.values()):
         rem['start-end'] = consecutive_rem_states[j]
+        rem['wavelet_transform'] = wt_spectrum[j]
         rem['IMFs'] = rem_imf[j]
         rem['IMF_Frequencies'] = rem_mask_freq[j]
         rem['Instantaneous Phases'] = instantaneous_phase[j]
@@ -297,7 +300,6 @@ def get_cycles_data(x, rem_states, sample_rate, theta_range=(5, 12)):
 
 
 def bin_tf_to_fpp(x, power, bin_count):
-
     """
        Bin time-frequency power data into Frequency Phase Power (FPP) plots using specified time intervals of cycles.
 
@@ -449,6 +451,7 @@ def peak_cog(frequencies, angles, amplitudes, ratio):
        - The CoG is then shifted to the nearest peak of Euclidean distance treating frequency as linear and phase as
        circular.
        """
+
     def nearest_peaks(frequency, angle, amplitude, ratio):
         peak_indices = peak_local_max(amplitude, min_distance=1, threshold_abs=0)
         cog_f = calculate_cog(frequency, angle, amplitude, ratio)
@@ -528,7 +531,7 @@ def boundary_peaks(amplitudes):
         - Magnitude values are only z-score normalized arrays from the original.
 
     Returns:
-    numpy.ndarray: An array with boundary values between largest peak value and 95 percent of lowest peak value,
+    numpy.ndarray: An array with boundary values between the largest peak value and 95 percent of lowest peak value,
      extracted from the input magnitudes.
         - For 2D amplitudes: A 2D array with boundary values at the same positions as the input.
         - For 3D amplitudes: A 3D array with boundary values at the same positions as the input for each cycle.
