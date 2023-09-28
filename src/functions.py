@@ -171,8 +171,20 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
         |    |--------(...)
     """
 
+    # Squeezing dimensions
+    x = np.squeeze(x)
+    rem_states = np.squeeze(rem_states)
+
+    print(x.shape)
+    print(rem_states.shape)
+
     # Detect REM periods
-    consecutive_rem_states = get_rem_states(rem_states, sample_rate)
+    consecutive_rem_states = get_rem_states(rem_states, sample_rate).astype(int)
+
+    if consecutive_rem_states.ndim == 3:
+        consecutive_rem_states=np.squeeze(consecutive_rem_states,0)
+
+    print(consecutive_rem_states.shape)
 
     # Intializing variables
     wt_spectrum = []
@@ -183,19 +195,18 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
     instantaneous_amp = []
     sub_theta_sig = np.empty((0,))
     theta_peak_sig = np.empty((0,))
-    cycles = np.empty((0, 5)).astype(int)
+    cycles = np.empty((0, 5))
     rem_dict = {}
     sub_dict = rem_dict
 
     # Loop through each REM epoch
     for i, rem in enumerate(consecutive_rem_states, start=1):
         sub_dict.setdefault(f'REM {i}', {})
-        start = int(rem[0])
-        end = int(rem[1])
+        start = rem[0]
+        end = rem[1]
         signal = x[start:end]
 
         # Generate the time-frequency power spectrum
-
         wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
 
         # Extraction of IMFs and IMF Frequencies for current REM epoch
@@ -231,7 +242,7 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
 
         size_adjust = np.min([trough.shape[0], zero_x.shape[0], peak.shape[0]])
         zero_x = zero_x[:size_adjust]
-        cycle = np.empty((size_adjust, 5)).astype(int)
+        cycle = np.empty((size_adjust, 5))
         cycle[:, [0, 2, 4]] = zero_x
         if trough[0] < peak[0]:
             cycle[:, 1] = trough[:zero_x.shape[0]]
@@ -263,7 +274,7 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
             cycle = np.hstack((cycle[:-1, 3].reshape((-1, 1)), cycle[1:, :-1]))
 
         # Create an array of amplitudes at the peaks
-        theta_peak_sig = np.append(theta_peak_sig, theta_sig[cycle[:, 2]])
+        theta_peak_sig = np.append(theta_peak_sig, theta_sig[cycle[:, 2].astype(int)])
         cycles = np.vstack((cycles, cycle + start))
 
     # Set the minimum amplitude threshold and discard unsatisfactory theta peaks
@@ -294,7 +305,7 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
         cycles_mask = (cycles > consecutive_rem_states[j, 0]) & (cycles < consecutive_rem_states[j, 1])
         cycles_mask = np.all(cycles_mask == True, axis=1)
         rem_cycles = cycles[cycles_mask]
-        rem['Cycles'] = rem_cycles
+        rem['Cycles'] = rem_cycles.astype(int)
 
     return rem_dict
 
