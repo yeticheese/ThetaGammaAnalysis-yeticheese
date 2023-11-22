@@ -193,6 +193,7 @@ def dict_walk(file_dict, folder_root, read_suffix='', write_suffix='', *function
     CBD_file = r'{folder_root}\CBD_log.csv'
     CBD_logger_file_path = CBD_file.format(folder_root=folder_root)
     cbd_df = read_csv(f'{CBD_logger_file_path}')
+    print(cbd_df)
     for rat, day_trial_dict in zip(file_dict.keys(), file_dict.values()):
         # Get the last sub-dictionary in the current sub-dictionary
         for day_trial_type, sleep_type_dict in zip(day_trial_dict.keys(), day_trial_dict.values()):
