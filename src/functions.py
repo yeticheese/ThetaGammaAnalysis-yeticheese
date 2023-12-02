@@ -310,14 +310,15 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
 
     # Place outputs in a nested dictionary
     for j, rem in enumerate(rem_dict.values()):
-        rem['start-end'] = consecutive_rem_states[good_rem][j]
+        good_rem_states = consecutive_rem_states[good_rem]
+        rem['start-end'] = good_rem_states[j]
         rem['wavelet_transform'] = wt_spectrum[j]
         rem['IMFs'] = rem_imf[j]
         rem['IMF_Frequencies'] = rem_mask_freq[j]
         rem['Instantaneous Phases'] = instantaneous_phase[j]
         rem['Instantaneous Frequencies'] = instantaneous_freq[j]
         rem['Instantaneous Amplitudes'] = instantaneous_amp[j]
-        cycles_mask = (cycles > consecutive_rem_states[j, 0]) & (cycles < consecutive_rem_states[j, 1])
+        cycles_mask = (cycles > good_rem_states[j, 0]) & (cycles < good_rem_states[j, 1])
         cycles_mask = np.all(cycles_mask == True, axis=1)
         if cycles[cycles_mask].size == 0:
             rem_cycles = np.zeros((1, 5)).astype(int) # Empty Cycles Array (none of the cycles passed our thresholds)
