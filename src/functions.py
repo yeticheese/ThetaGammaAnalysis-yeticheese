@@ -240,7 +240,7 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
 
         # Generate the time-frequency power spectrum
         print('Generating time-frequency matrix')
-        wavelet_transform = morlet_wt(np.sum(imf.T[supra_theta], axis=0), sample_rate, frequencies, mode='amplitude')
+        wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
 
         # print('Generating time-frequency matrix')
         # if wavelet =='theta':
