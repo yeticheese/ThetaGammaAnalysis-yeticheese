@@ -206,10 +206,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
         end = rem[1]+1
         signal = x[start:end]
 
-        # Generate the time-frequency power spectrum
-        print('Generating time-frequency matrix')
-        wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
-
         # Extraction of IMFs and IMF Frequencies for current REM epoch
         print('Finding Intrinsic Mode Functions')
         imf, mask_freq = sift.iterated_mask_sift(signal,
@@ -229,7 +225,7 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
         instantaneous_amp.append(IA)
 
         # Identify sub-theta, theta, and supra-theta frequencies
-        sub_theta, theta, _ = tg_split(mask_freq, theta_range)
+        sub_theta, theta, supra_theta = tg_split(mask_freq, theta_range)
 
         if np.any(theta):
             print('Theta frequencies are valid')
@@ -241,6 +237,24 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
             continue
 
         print(f'Processing REM {count} ')
+
+        # Generate the time-frequency power spectrum
+        print('Generating time-frequency matrix')
+        wavelet_transform = morlet_wt(np.sum(imf.T[supra_theta], axis=0), sample_rate, frequencies, mode='amplitude')
+
+        # print('Generating time-frequency matrix')
+        # if wavelet =='theta':
+        #     wavelet_transform = morlet_wt(np.sum(imf.T[theta], axis=0),
+        #                                   sample_rate,
+        #                                   frequencies,
+        #                                   mode='amplitude')
+        # elif wavelet == 'gamma':
+        #     wavelet_transform = morlet_wt(np.sum(imf.T[supra_theta], axis=0),
+        #                                   sample_rate,
+        #                                   frequencies,
+        #                                   mode='amplitude')
+        # else:
+        #     wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
 
         # Generate the theta signal to detect cycles
         theta_sig = np.sum(imf.T[theta], axis=0)
