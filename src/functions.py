@@ -217,13 +217,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
         print('Extracting Instantaneous Phase, Frequencies and Amplitudes of each IMF')
         IP, IF, IA = spectra.frequency_transform(imf, sample_rate, 'nht')
 
-        wt_spectrum.append(wavelet_transform)
-        rem_imf.append(imf)
-        rem_mask_freq.append(mask_freq)
-        instantaneous_phase.append(IP)
-        instantaneous_freq.append(IF)
-        instantaneous_amp.append(IA)
-
         # Identify sub-theta, theta, and supra-theta frequencies
         sub_theta, theta, supra_theta = tg_split(mask_freq, theta_range)
 
@@ -255,6 +248,13 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
         #                                   mode='amplitude')
         # else:
         #     wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
+
+        wt_spectrum.append(wavelet_transform)
+        rem_imf.append(imf)
+        rem_mask_freq.append(mask_freq)
+        instantaneous_phase.append(IP)
+        instantaneous_freq.append(IF)
+        instantaneous_amp.append(IA)
 
         # Generate the theta signal to detect cycles
         theta_sig = np.sum(imf.T[theta], axis=0)
