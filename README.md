@@ -19,14 +19,13 @@
   * [Prerequisites](#prerequisites)
   * [Installation](#installation)
 * [Usage](#usage)
+* [References](#references)
 
 [//]: # (* [Roadmap]&#40;#roadmap&#41;)
-
 [//]: # (* [Contributing]&#40;#contributing&#41;)
-
 [//]: # (* [License]&#40;#license&#41;)
 [//]: # (* [Authors]&#40;#authors&#41;)
-* [References](#references)
+
 
 ## About The Project
 [//]: # (![Screen Shot]&#40;images/screenshot.png&#41;)
@@ -85,4 +84,4 @@ This section will be further detailed with more usage scenarios and implementati
 
 # References
 * [1. Lopes-dos-Santos, V., van de Ven, G. M., Morley, A., Trouche, S., Campo-Urriza, N., &amp; Dupret, D. (2018). Parsing hippocampal theta oscillations by nested spectral components during spatial exploration and memory-guided behavior. Neuron, 100(4). doi:10.1016/j.neuron.2018.09.031](https://www.cell.com/neuron/fulltext/S0896-6273(18)30833-X) 
-* [2. Zhang, L., Lee, J., Rozell, C., &amp; Singer, A. C. (2019). Sub-second dynamics of theta-gamma coupling in hippocampal CA1. eLife, 8. doi:10.7554/elife.44320 ](ttps://elifesciences.org/articles/44320)
+* [2. Zhang, L., Lee, J., Rozell, C., &amp; Singer, A. C. (2019). Sub-second dynamics of theta-gamma coupling in hippocampal CA1. eLife, 8. doi:10.7554/elife.44320 ](https://elifesciences.org/articles/44320)
