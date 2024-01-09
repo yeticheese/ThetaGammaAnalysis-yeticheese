@@ -34,7 +34,7 @@ def find_matching_files(input_directory, expression):
     """
     Find all files in the given directory that match the specified expression.
 
-    Args:
+    Parameters:
         input_directory (Path): The directory to search for matching files.
         expression (str): The pattern to match against file names.
 
@@ -48,7 +48,7 @@ def map_HPC_files(posttrial_states):
     """
     Map the corresponding HPC files to a list of posttrial state file paths.
 
-    Args:
+    Parameters:
         posttrial_states (list of pathlib.Path): List of file paths to posttrial states.
 
     Returns:
@@ -67,7 +67,7 @@ def rem_extract(lfp, sleep_trans):
     """
     Extract REM sleep data from a LFP using sleep transition times.
 
-    Args:
+    Parameters:
         lfp (numpy.ndarray): A NumPy array.
         sleep_trans (numpy.ndarray): A NumPy array containing pairs of sleep transition times.
 
@@ -87,7 +87,7 @@ def extract_REM(HPC_files):
     """
     Extract and save REM sleep data from HPC files.
 
-    Args:
+    Parameters:
         HPC_files (dictionary of pathlib.Path): A dictionary where the keys are Paths to states
             and values are Paths to the LFP recordings.
     """
