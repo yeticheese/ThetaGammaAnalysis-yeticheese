@@ -3,11 +3,10 @@ import emd.spectra as spectra
 import numpy as np
 import pingouin as pg
 import sails
-from scipy.signal import convolve2d
+from scipy.signal import convolve2d, butter, filtfilt
 from scipy.stats import zscore, binned_statistic
 from scipy.ndimage import center_of_mass
 from skimage.feature import peak_local_max
-
 
 def get_rem_states(states, sample_rate):
     """
@@ -38,14 +37,16 @@ def get_rem_states(states, sample_rate):
     consecutive_rem_states = np.array(consecutive_rem_states)
     null_states_mask = np.squeeze(np.diff(consecutive_rem_states) > 0)
     consecutive_rem_states = consecutive_rem_states[null_states_mask]
-    return consecutive_rem_states
+    return consecutive_rem_states.astype(int)
 
 
 def morlet_wt(x, sample_rate, frequencies=np.arange(1, 200, 1), n=5, mode='complex'):
     """
         Compute the Morlet Wavelet Transform of a signal.
 
-        Parameters: x (numpy.ndarray): The input signal for which the Morlet Wavelet Transform is computed.
+        Parameters: 
+        
+        x (numpy.ndarray): The input signal for which the Morlet Wavelet Transform is computed.
         sample_rate (int or float): The sampling rate of the input signal. frequencies (numpy.ndarray, optional): An
         array of frequencies at which to compute the wavelet transform. Default is a range from 1 to 200 Hz with a
         step of 1 Hz. n (int, optional): The number of cycles of the Morlet wavelet. Default is 5. mode (str,
@@ -62,6 +63,40 @@ def morlet_wt(x, sample_rate, frequencies=np.arange(1, 200, 1), n=5, mode='compl
     wavelet_transform = sails.wavelet.morlet(x, freqs=frequencies, sample_rate=sample_rate, ncycles=n,
                                              ret_mode=mode, normalise=None)
     return wavelet_transform
+
+def bandpass_filter(x,sample_rate, theta_range=(5,12), order=4):
+    """
+    Applies a bandpass filter to the input signal.
+
+    Parameters:
+    x (numpy.ndarray): The input signal to be filtered.
+    sample_rate (float): The sampling rate of the input signal.
+    theta_range (tuple, optional): The frequency range (in Hz) for the bandpass filter.
+    Defaults to (5, 12) representing the theta frequency range.
+    order (int, optional): The order of the Butterworth filter. Defaults to 4.
+
+    Returns:
+    - array-like: The filtered signal.
+
+    The function calculates the Nyquist frequency based on the provided sample rate and
+    defines the low and high cutoff frequencies for the bandpass filter within the specified
+    theta_range. It then designs a Butterworth bandpass filter with the given order and applies
+    it to the input signal using the filtfilt method to avoid phase shift.
+
+    Example:
+    >>> filtered_data = bandpass_filter(input_data, 200, theta_range=(5, 12), order=4)
+    """
+    nyquist = 0.5 * sample_rate
+    low = theta_range[0] / nyquist
+    high = theta_range[1] / nyquist
+
+    # Design bandpass filter using Butterworth filter
+    b, a = butter(order, [low, high], btype='band')
+
+    # Apply the filter using filtfilt to avoid phase shift
+    filtered_signal = filtfilt(b, a, x)
+
+    return filtered_signal
 
 
 def tg_split(mask_freq, theta_range=(5, 12)):
@@ -187,7 +222,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
     print(consecutive_rem_states.shape)
 
     # Intiializing variables
-    wt_spectrum = []
     rem_imf = []
     rem_mask_freq = []
     instantaneous_phase = []
@@ -231,10 +265,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
 
         print(f'Processing REM {count} ')
 
-        # Generate the time-frequency power spectrum
-        print('Generating time-frequency matrix')
-        wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
-
         # print('Generating time-frequency matrix')
         # if wavelet =='theta':
         #     wavelet_transform = morlet_wt(np.sum(imf.T[theta], axis=0),
@@ -248,8 +278,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
         #                                   mode='amplitude')
         # else:
         #     wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
-
-        wt_spectrum.append(wavelet_transform)
         rem_imf.append(imf)
         rem_mask_freq.append(mask_freq)
         instantaneous_phase.append(IP)
@@ -326,7 +354,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
     for j, rem in enumerate(rem_dict.values()):
         good_rem_states = consecutive_rem_states[good_rem]
         rem['start-end'] = good_rem_states[j]
-        rem['wavelet_transform'] = wt_spectrum[j]
         rem['IMFs'] = rem_imf[j]
         rem['IMF_Frequencies'] = rem_mask_freq[j]
         rem['Instantaneous Phases'] = instantaneous_phase[j]
