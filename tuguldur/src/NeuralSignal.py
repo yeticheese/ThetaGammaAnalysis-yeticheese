@@ -9,13 +9,7 @@ from bycycle.features import compute_features
 logger = logging.getLogger('runtime')
 
 def metaname(metadata):
-    name = metadata["RatID"] + "_" + metadata["StudyDay"] + "_" + metadata["condition_full"] + "_"
-    if metadata["treatment"] == "TreatmentPositive":
-        name += "CBD"
-    else:
-        name += "VEH"
-    name += "_" + metadata["posstrial_number"]
-    return name
+    return '_'.join(metadata.values())
 
 def get_episodes(df_features, threshold_episode=2500):
     """

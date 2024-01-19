@@ -39,7 +39,7 @@ class DataFolder:
 
         filename = self.paths[index].stem
         name_parts = str(filename).split('_')
-        field_names = ['RatID', 'StudyDay', 'condition', 'condition_full', 'treatment', 'posstrial_number']
+        field_names = ['RatID', 'StudyDay', 'condition', 'treatment', 'posttrial_number']
         return {field: value for field, value in zip(field_names, name_parts)}
 
     def __getitem__(self, index: int):
