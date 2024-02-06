@@ -177,6 +177,74 @@ def extrema(x):
     return zero_xs, troughs, peaks
 
 
+def cycles(x, mode='peak'):
+    zero_x, trough, peak = extrema(x)
+    shape_bool_mask = np.empty((1,5)).astype(bool)
+    if mode == 'trough':
+        zero_x = zero_x[(zero_x > peak[0]) & (zero_x < peak[-1])]
+        trough = trough[(trough > zero_x[0]) & (trough < zero_x[-1])]
+        shape_bool_mask = [False,False,True,True]
+    elif mode == 'peak':
+        zero_x = zero_x[(zero_x > trough[0]) & (zero_x < trough[-1])]
+        peak = peak[(peak > zero_x[0]) & (peak < zero_x[-1])]
+        shape_bool_mask = [True,True,False,False]
+    elif mode == 'zero-peak':
+        # Get rid of all troughs before the first peak and all peaks after the last trough
+        trough = trough[trough > peak[0]]
+        peak = peak[peak < trough[-1]]
+        
+        sequence = [zero_x[0],peak[0],zero_x[1],trough[0],zero_x[2]]
+        sequence = np.all(np.diff (sequence) >0)
+        
+        while not sequence:
+            zero_x=zero_x[1:]
+            sequence = np.all(np.diff([zero_x[0],peak[0],zero_x[1],trough[0],zero_x[2]]) > 0)
+            
+
+        shape_bool_mask = [True,False,False,True]
+    elif mode =='zero-trough':
+        # Get rid of all peaks before the first trough and all troughs after the last peak
+        trough = trough[trough < peak[-1]]
+        peak = peak[peak > trough[0]]
+
+        sequence = [zero_x[0],trough[0],zero_x[1],peak[0],zero_x[2]]
+        sequence = np.all(np.diff (sequence) >0)
+        
+        while not sequence:
+            zero_x=zero_x[1:]
+            sequence = np.all(np.diff([zero_x[0],peak[0],zero_x[1],trough[0],zero_x[2]]) > 0)
+
+        shape_bool_mask = [False,True,True,False]
+
+    indices = np.sort(np.hstack([zero_x,trough,peak]))
+
+    cycles_shape= np.array([indices[::4][:-1].shape[0],
+                            indices[1::4].shape[0],
+                            indices[2::4].shape[0],
+                            indices[3::4].shape[0],
+                            indices[::4][1:].shape[0]])
+    
+    
+    cycles = np.zeros((np.max(cycles_shape),5)).astype(int)
+
+    for i, (shape,cycle) in enumerate(zip(cycles_shape,cycles.T)):
+        if i == 0:
+            cycle[:shape]=indices[::4][:-1]     
+        elif i == range(cycles.shape[1])[-1]:
+            cycle[:shape]=indices[::4][1:]
+        else:
+            cycle[:shape]=indices[i::4]
+
+
+    sequence_check=np.all(np.diff(cycles,axis=1) > 0, axis=1)
+    shape_check = np.all((np.diff(x[cycles],axis=1) > 0) == shape_bool_mask,axis=1)
+
+    cycles_mask = np.logical_and(sequence_check,shape_check)
+    
+    cycles = cycles[cycles_mask]
+    return cycles
+
+
 def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)):
     """
     Generate a nested dictionary containing extracted data and desired metadata of each REM epochs in the input sleep
