@@ -208,3 +208,21 @@ class SignalProcessor:
         """
         self._phasic = value
 
+class SegmentSignalProcessor(SignalProcessor):
+    def __init__(self, signal: np.ndarray, period: np.ndarray, sample_rate: float, freq_range: tuple, ):
+        super().__init__(signal, sample_rate, freq_range)
+        self.period = period
+
+    def get_duration(self) -> np.ndarray:
+        time = self.period/self.sample_rate
+        duration = np.linspace(time[0],time[1],len(self.signal))*1000
+        return duration
+
+    def get_cycles(self,mode='peak'):
+        cycles = super().get_cycles() + self.period[0]
+        self._cycles = cycles
+        return cycles
+
+
+
+    
