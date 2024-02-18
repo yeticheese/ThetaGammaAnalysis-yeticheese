@@ -7,6 +7,43 @@ from scipy.signal import convolve2d, butter, filtfilt
 from scipy.stats import zscore, binned_statistic
 from scipy.ndimage import center_of_mass
 from skimage.feature import peak_local_max
+from neurodsp.filt import filter_signal_fir
+from bycycle.features import compute_features
+
+
+
+def get_states(states, state_number, sample_rate):
+    """
+    Extract states from a binary state vector.
+
+    Parameters:
+    states (numpy.ndarray): A state vector where 5 represents REM sleep and other values indicate non-REM.
+    sample_rate (int or float): The sampling rate of the data.
+    state_number: A number that corresponds to a certain state in the state vector
+
+    Returns:
+    numpy.ndarray: An array of consecutive REM sleep state intervals in seconds, represented as (start, end) pairs.
+
+    Notes:
+    - This function processes a binary state vector and identifies consecutive state intervals.
+    - It calculates the start and end times of each state interval based on the provided sample rate.
+    - The resulting intervals are returned as a numpy array of (start, end) pairs in seconds.
+    """
+    states = np.squeeze(states)
+    rem_state_indices = np.where(states == state_number)[0]
+    rem_state_changes = np.diff(rem_state_indices)
+    split_indices = np.where(rem_state_changes != 1)[0] + 1
+    split_indices = np.concatenate(([0], split_indices, [len(rem_state_indices)]))
+    consecutive_rem_states = np.empty((len(split_indices) - 1, 2))
+    for i, (start, end) in enumerate(zip(split_indices, split_indices[1:])):
+        start = rem_state_indices[start] * int(sample_rate)
+        end = rem_state_indices[end - 1] * int(sample_rate)
+        consecutive_rem_states[i] = np.array([start, end])
+    consecutive_rem_states = np.array(consecutive_rem_states)
+    null_states_mask = np.squeeze(np.diff(consecutive_rem_states) > 0)
+    consecutive_rem_states = consecutive_rem_states[null_states_mask]
+    return consecutive_rem_states.astype(int)
+
 
 def get_rem_states(states, sample_rate):
     """
@@ -177,7 +214,7 @@ def extrema(x):
     return zero_xs, troughs, peaks
 
 
-def cycles(x, mode='peak'):
+def get_cycles(x, mode='peak'):
     zero_x, trough, peak = extrema(x)
     shape_bool_mask = np.empty((1,5)).astype(bool)
     if mode == 'trough':
