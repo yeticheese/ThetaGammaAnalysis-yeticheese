@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import matplotlib.pyplot as plt
+from itertools import chain
 
 from neurodsp.filt import filter_signal_fir
 from bycycle.features import compute_features
@@ -11,45 +12,34 @@ logger = logging.getLogger('runtime')
 def metaname(metadata):
     return '_'.join(metadata.values())
 
-def get_episodes(df_features, threshold_episode=2500):
-    """
-    Determine episodes by connecting the cycles.
-
-    Parameters
-    ----------
-    df_features: pandas.DataFrame
-        Dataframe containing 'sample_last_trough' and 'sample_next_trough' features.
-    threshold_episode: int, optional
-        Threshold value for connecting consecutive episodes.
-
-    Returns:
-        list: A list of tuples representing episodes [(start1, end1), (start2, end2), ...].
-    """
+def get_episodes(df_features, threshold_episode):
     l1 = df_features["sample_last_trough"].to_numpy()
     l2 = df_features["sample_next_trough"].to_numpy()
+
+    # Ensure l1 and l2 have the same length
+    if len(l1) != len(l2):
+        raise ValueError("l1 and l2 must have the same length.")
 
     # List to store extracted episodes
     episodes = []
 
     # Assign the start of the first episode
     start = l1[0]
-    
-    # Initialize the end of the first episode
     end = 0
 
-    for i, l1_i in enumerate(l1):
-        if (l1_i - l2[i - 1]) > threshold_episode:
+    for i in range(1, len(l1)):
+        diff = l1[i] - l2[i - 1]
+
+        if (diff > threshold_episode):
             # Set the end of the current episode
             end = l2[i - 1]
-            # Append the current episode to the list
             episodes.append((start, end))
             # Update the start for the next episode
-            start = l1_i
+            start = l1[i]
+
     # Set the end of the last episode
     end = l2[-1]
-    # Append the last episode to the list
-    episodes.append((start, end))  
-
+    episodes.append((start, end))
     return episodes
 
 def get_segments(signal, timestamps):
@@ -212,16 +202,20 @@ class NeuralSignal(BaseSignal):
         # Extract the timestamps and burst detection results
         df = df[["sample_last_trough", "sample_next_trough", "is_burst"]]
         phasic_df = df[df["is_burst"] == True]
-        tonic_df = df[df["is_burst"] == False]
+        tonic_df = df[df["is_burst"] == False]  
 
         logger.info("Found {0} phasic cycles in the signal".format(len(phasic_df)))
         logger.info("Found {0} tonic cycles in the signal".format(len(tonic_df)))
 
+        start = df["sample_last_trough"].iloc[0]
+        end = df["sample_next_trough"].iloc[-1]
+
         if len(phasic_df) != 0:
             self.phasic = get_episodes(phasic_df, threshold_episode=threshold_episode)
-            self.tonic = get_episodes(tonic_df, threshold_episode=0)
+            eps = [start] + list(chain.from_iterable(self.phasic)) + [end]
+            self.tonic = list(zip(eps[::2], eps[1::2]))
         else:
-            self.tonic = [(tonic_df["sample_last_trough"].iloc[0], tonic_df["sample_next_trough"].iloc[-1])]
+            self.tonic = [(start, end)]
         
         logger.debug("Phasic episodes: {0}".format(self.phasic))
         logger.debug("Tonic episodes: {0}".format(self.tonic))
