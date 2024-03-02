@@ -9,7 +9,6 @@ import scipy
 import sails
 from src.utils import get_file_dict
 from src.functions import get_rem_states, tg_split, extrema, get_cycles,get_states, morlet_wt, bin_tf_to_fpp, peak_cog
-from src.NeuralSignal import *
 from dataclasses import dataclass, field
 from neurodsp.filt import filter_signal_fir
 from neurodsp.filt import filter_signal
