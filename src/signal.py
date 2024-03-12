@@ -7,12 +7,12 @@ import os
 import scipy.io as sio
 import scipy
 import sails
-from src.utils import get_file_dict
 from src.functions import get_rem_states, tg_split, extrema, get_cycles,get_states, morlet_wt, bin_tf_to_fpp, peak_cog
 from dataclasses import dataclass, field
 from neurodsp.filt import filter_signal_fir
 from neurodsp.filt import filter_signal
 from bycycle.features import compute_features
+from icecream import ic
 
 
 class SignalProcessor:
@@ -362,36 +362,29 @@ class SleepSignal(SignalProcessor):
     Methods:
     - To be determined
     """
-    root: str
-    signal: np.ndarray = field(init=False)
-    states: np.ndarray = field(init=False)
-    rem_states: np.ndarray = field(init=False)
+    signal: np.ndarray
+    rem_states: np.ndarray
     sample_rate: float
     freq_range: tuple
     REM: list = field(default_factory=list)  # Initialize _REM as an empty list using default_factory
     cycles: np.ndarray = field(default_factory=lambda: np.empty((0, 5)).astype(int))  # Initialize cycles with empty array using default_factory
 
     def __post_init__(self):
-        file_dict = get_file_dict(self.root)
-        HPC_file_path = os.path.join(self.root, file_dict['HPC'])
-        states_file_path = os.path.join(self.root, file_dict['states'])
-        self.signal = np.squeeze(sio.loadmat(HPC_file_path)['HPC'])
-        self.states = np.squeeze(sio.loadmat(states_file_path)['states'])
-        self.rem_states = get_rem_states(self.states, self.sample_rate)
-        if self.rem_states.ndim == 3:
-            self.rem_states=np.squeeze(self.rem_states,0)
-        for rem_period in self.rem_states:
-            signal = self.signal[rem_period[0]:rem_period[1]]
-            try:
-                REM = REM_Segment(signal, rem_period ,self.sample_rate, self.freq_range)
-            except Exception as e:
-                f'Error processing REM period {rem_period} '
-                continue
-            REM.iter_sift()
-            if np.any(tg_split(REM._mask_freq)[1]):
-                self.REM.append(REM)
-            else:
-                continue
+        if not self.REM:
+            ic('REM List is empty')
+            actual_rem_states = []
+            for i,rem_period in enumerate(self.rem_states):
+                signal = self.signal[rem_period[0]:rem_period[1]]
+                try:
+                    REM = REM_Segment(signal, rem_period ,self.sample_rate, self.freq_range)
+                    actual_rem_states.append(i)
+                    self.REM.append(REM)
+                except Exception as e:
+                    f'Error processing REM period {rem_period} '
+                    continue
+            self.rem_states = self.rem_states[actual_rem_states]
+        else:
+            ic('REM List provided')
         self.get_cycles()
         self.apply_duration_threshold()
         self.apply_amplitude_threshold()
@@ -461,11 +454,11 @@ class REM_Segment(SegmentSignalProcessor):
     period: np.ndarray
     sample_rate: float
     freq_range: tuple
-    imf: np.ndarray = field(init = False)
-    mask_freq: float = field(init = False)
-    IP: np.ndarray = field(init = False, metadata= 'Instaneous Power')
-    IF: np.ndarray = field(init = False, metadata= 'Instantaneous Frequency')
-    IA: np.ndarray = field(init = False, metadata= 'Instantaneous Amplitude')
+    imf: np.ndarray = field(default_factory=lambda: np.array([]))
+    mask_freq: float = field(default_factory=lambda: np.array([]))
+    IP: np.ndarray = field(default_factory=lambda: np.array([]), metadata= 'Instaneous Power')
+    IF: np.ndarray = field(default_factory=lambda: np.array([]), metadata= 'Instantaneous Frequency')
+    IA: np.ndarray = field(default_factory=lambda: np.array([]), metadata= 'Instantaneous Amplitude')
     cycles: np.ndarray = field(default_factory=lambda: np.empty((0, 5)).astype(int))  # Initialize cycles with empty array using default_factory
     _spike_df: pd.DataFrame = None
     tonic: np.ndarray = None
@@ -473,14 +466,26 @@ class REM_Segment(SegmentSignalProcessor):
 
     def __post_init__(self):
         REM = SegmentSignalProcessor(self.signal,self.period,self.sample_rate,self.freq_range)
-        self.imf,self.mask_freq = REM.iter_sift()
-        self.IP,self.IF,self.IA = REM.frequency_transform()
-        REM.get_cycles()
+        if (self.imf.size == 0) or (self.mask_freq.size == 0):
+            ic('No imf data, generating imfs....')
+            self.imf,self.mask_freq = REM.iter_sift()
+            self.IP,self.IF,self.IA = REM.frequency_transform()
+        if self.cycles.size == 0:
+            ic('No cycle data, extracting cycles....')
+            REM.get_cycles()
+            self.cycles = REM._cycles
         REM.spike_df()
-        self.cycles = REM._cycles
         self.phasic = self.get_phasic_states()
         self.tonic = self.get_tonic_states()
-
+    
+    # def __eq__(self, other):
+    #     if not isinstance(other, REM_Segment):
+    #         return False
+    #     attrs = ['signal', 'period', 'sample_rate', 'freq_range', 'imf', 'mask_freq', 'IP', 'IF', 'IA', 'cycles']
+    #     for attr in attrs:
+    #         if not np.array_equal(getattr(self, attr), getattr(other, attr)):
+    #             return False
+    #     return True
 
 
 
