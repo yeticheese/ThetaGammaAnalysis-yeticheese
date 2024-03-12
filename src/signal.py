@@ -141,7 +141,7 @@ class SignalProcessor:
         try:
             split_states = get_states(df['is_burst'].to_numpy(),True,1)
         except IndexError as e:
-            print('No phasic states detected')
+            print('No phasic states detected in this REM epoch')
             split_states = np.empty((0,2))
         if split_states.ndim == 3:
             split_states=np.squeeze(split_states,0)
@@ -181,7 +181,6 @@ class SignalProcessor:
     
     #TODO: Fix duration length data type adjustability
     def apply_duration_threshold(self,duration_length:float or tuple = None):
-        print(self._cycles.shape)
         if duration_length is None:
             duration_length = 1000/np.array(self.freq_range)
         if getattr(self,'cycles') is None:

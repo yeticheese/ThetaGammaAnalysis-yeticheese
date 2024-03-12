@@ -5,6 +5,7 @@ from src.functions import get_rem_states
 import scipy.io as sio
 import numpy as np
 import os
+import re
 
 def generate_class_dict(data_dict:dict,signal:np.ndarray,sample_rate:float,freq_range:tuple):
     class_dict={}
