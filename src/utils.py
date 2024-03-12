@@ -16,6 +16,67 @@ def load_config(config_path):
         cfg = yaml.safe_load(f)
     return cfg
 
+#TODO: Change Documentation
+def get_file_dict(file_path):
+    """
+    Recursively navigates through a directory tree and generates a nested dictionary
+    representing the file structure maintained at the Genzel Lab Databases,
+    along with extracted information from the file paths.
+
+    Args:
+        file_path (str): The path to the root directory.
+
+    Returns:
+        dict: A nested dictionary representing the file structure and extracted information.
+            The keys are directory names, and the values are nested dictionaries or file names
+            and extracted information parsed with RegEx from file paths.
+
+    Example:
+        file_dict = get_files_dict('/path/to/directory')
+        :param file_path:
+    """
+    file_dict = {}
+
+    if isinstance(file_path, tuple):  # If it's a tuple of paths
+        all_iterators = (os.walk(path, topdown=True) for path in file_path)
+        walker = itertools.chain(*all_iterators)
+    else:  # If it's a single path
+        walker = os.walk(file_path, topdown=True)
+
+    for root, dirs, files in walker:
+        rat_conditions = re.findall('Rat\d|HC|OR|OD|presleep|SD\d\d|SD\d|posttrial\d', root)
+        if len(rat_conditions) < 4:
+            continue
+
+        file_dir_parts = root.split(os.sep)[7:]
+        for file in files:
+            state = bool(re.search('states.*.mat', file))
+            hpc = bool(re.search(r"\bHPC.*.mat", file))
+            data_dict = bool(re.search(r'^Rat\d+_SD\d+_(?:OR|HC|OD)+_(?:CBD|VEH)+_(?:posttrial\d|presleep)+_[A-Za-z]+$',file))
+            if state or hpc or data_dict:
+                file_dir_parts.append(file)
+
+        file_dict['root'] = f'{root}'
+        rat = [re.search(r"Rat(\d+)", conditions).group(1) for conditions in rat_conditions if re.search(r"Rat(\d+)", conditions)]
+        file_dict['rat'] = int(rat[0])
+        study_day = [re.search(r"SD(\d{1,2})", conditions).group(1) for conditions in rat_conditions if re.search(r"SD(\d{1,2})", conditions)]
+        file_dict['study_day'] = int(study_day[0])
+        condition = [conditions for conditions in rat_conditions if re.search(r'\b(?:OR|HC|OD)\b', conditions)]
+        file_dict['condition'] = condition[0]
+        trial = [trials for trials in rat_conditions if re.search(r'\b(?:posttrial\d|presleep)\b', trials)]
+        file_dict['trial'] = trial[0]
+        HPC_file = [HPC for HPC in file_dir_parts if re.search(r'\bHPC.*.mat', HPC)]
+        file_dict['HPC'] = HPC_file[0]
+        states_file = [states for states in file_dir_parts if re.search(r'states.*.mat', states)]
+        file_dict['states'] = states_file[0]
+        if not any(re.search(r'^Rat\d+_SD\d+_(?:OR|HC|OD)+_(?:CBD|VEH)+_(?:posttrial\d|presleep)+_[A-Za-z]+$', s) for s in file_dir_parts):
+            file_dict['data_dict'] = None
+        else:
+            cycles_data_file = [cycles_dat for cycles_dat in file_dir_parts if re.search(r'^Rat\d+_SD\d+_(?:OR|HC|OD)+_(?:CBD|VEH)+_(?:posttrial\d|presleep)+_[A-Za-z]+$', cycles_dat)]
+            file_dict['data_dict']= cycles_data_file[0]
+
+
+    return file_dict
 
 def get_files_dict(file_path):
     """
