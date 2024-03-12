@@ -3,10 +3,46 @@ import emd.spectra as spectra
 import numpy as np
 import pingouin as pg
 import sails
-from scipy.signal import convolve2d
+from scipy.signal import convolve2d, butter, filtfilt
 from scipy.stats import zscore, binned_statistic
 from scipy.ndimage import center_of_mass
 from skimage.feature import peak_local_max
+from neurodsp.filt import filter_signal_fir
+from bycycle.features import compute_features
+
+
+
+def get_states(states, state_number, sample_rate):
+    """
+    Extract states from a binary state vector.
+
+    Parameters:
+    states (numpy.ndarray): A state vector where 5 represents REM sleep and other values indicate non-REM.
+    sample_rate (int or float): The sampling rate of the data.
+    state_number: A number that corresponds to a certain state in the state vector
+
+    Returns:
+    numpy.ndarray: An array of consecutive REM sleep state intervals in seconds, represented as (start, end) pairs.
+
+    Notes:
+    - This function processes a binary state vector and identifies consecutive state intervals.
+    - It calculates the start and end times of each state interval based on the provided sample rate.
+    - The resulting intervals are returned as a numpy array of (start, end) pairs in seconds.
+    """
+    states = np.squeeze(states)
+    rem_state_indices = np.where(states == state_number)[0]
+    rem_state_changes = np.diff(rem_state_indices)
+    split_indices = np.where(rem_state_changes != 1)[0] + 1
+    split_indices = np.concatenate(([0], split_indices, [len(rem_state_indices)]))
+    consecutive_rem_states = np.empty((len(split_indices) - 1, 2))
+    for i, (start, end) in enumerate(zip(split_indices, split_indices[1:])):
+        start = rem_state_indices[start] * int(sample_rate)
+        end = rem_state_indices[end - 1] * int(sample_rate)
+        consecutive_rem_states[i] = np.array([start, end])
+    consecutive_rem_states = np.array(consecutive_rem_states)
+    null_states_mask = np.squeeze(np.diff(consecutive_rem_states) > 0)
+    consecutive_rem_states = consecutive_rem_states[null_states_mask]
+    return consecutive_rem_states.astype(int)
 
 
 def get_states(states, state_number, sample_rate):
@@ -70,14 +106,16 @@ def get_rem_states(states, sample_rate):
     consecutive_rem_states = np.array(consecutive_rem_states)
     null_states_mask = np.squeeze(np.diff(consecutive_rem_states) > 0)
     consecutive_rem_states = consecutive_rem_states[null_states_mask]
-    return consecutive_rem_states
+    return consecutive_rem_states.astype(int)
 
 
 def morlet_wt(x, sample_rate, frequencies=np.arange(1, 200, 1), n=5, mode='complex'):
     """
         Compute the Morlet Wavelet Transform of a signal.
 
-        Parameters: x (numpy.ndarray): The input signal for which the Morlet Wavelet Transform is computed.
+        Parameters: 
+        
+        x (numpy.ndarray): The input signal for which the Morlet Wavelet Transform is computed.
         sample_rate (int or float): The sampling rate of the input signal. frequencies (numpy.ndarray, optional): An
         array of frequencies at which to compute the wavelet transform. Default is a range from 1 to 200 Hz with a
         step of 1 Hz. n (int, optional): The number of cycles of the Morlet wavelet. Default is 5. mode (str,
@@ -94,6 +132,40 @@ def morlet_wt(x, sample_rate, frequencies=np.arange(1, 200, 1), n=5, mode='compl
     wavelet_transform = sails.wavelet.morlet(x, freqs=frequencies, sample_rate=sample_rate, ncycles=n,
                                              ret_mode=mode, normalise=None)
     return wavelet_transform
+
+def bandpass_filter(x,sample_rate, theta_range=(5,12), order=4):
+    """
+    Applies a bandpass filter to the input signal.
+
+    Parameters:
+    x (numpy.ndarray): The input signal to be filtered.
+    sample_rate (float): The sampling rate of the input signal.
+    theta_range (tuple, optional): The frequency range (in Hz) for the bandpass filter.
+    Defaults to (5, 12) representing the theta frequency range.
+    order (int, optional): The order of the Butterworth filter. Defaults to 4.
+
+    Returns:
+    - array-like: The filtered signal.
+
+    The function calculates the Nyquist frequency based on the provided sample rate and
+    defines the low and high cutoff frequencies for the bandpass filter within the specified
+    theta_range. It then designs a Butterworth bandpass filter with the given order and applies
+    it to the input signal using the filtfilt method to avoid phase shift.
+
+    Example:
+    >>> filtered_data = bandpass_filter(input_data, 200, theta_range=(5, 12), order=4)
+    """
+    nyquist = 0.5 * sample_rate
+    low = theta_range[0] / nyquist
+    high = theta_range[1] / nyquist
+
+    # Design bandpass filter using Butterworth filter
+    b, a = butter(order, [low, high], btype='band')
+
+    # Apply the filter using filtfilt to avoid phase shift
+    filtered_signal = filtfilt(b, a, x)
+
+    return filtered_signal
 
 
 def tg_split(mask_freq, theta_range=(5, 12)):
@@ -174,6 +246,74 @@ def extrema(x):
     return zero_xs, troughs, peaks
 
 
+def get_cycles(x, mode='peak'):
+    zero_x, trough, peak = extrema(x)
+    shape_bool_mask = np.empty((1,5)).astype(bool)
+    if mode == 'trough':
+        zero_x = zero_x[(zero_x > peak[0]) & (zero_x < peak[-1])]
+        trough = trough[(trough > zero_x[0]) & (trough < zero_x[-1])]
+        shape_bool_mask = [False,False,True,True]
+    elif mode == 'peak':
+        zero_x = zero_x[(zero_x > trough[0]) & (zero_x < trough[-1])]
+        peak = peak[(peak > zero_x[0]) & (peak < zero_x[-1])]
+        shape_bool_mask = [True,True,False,False]
+    elif mode == 'zero-peak':
+        # Get rid of all troughs before the first peak and all peaks after the last trough
+        trough = trough[trough > peak[0]]
+        peak = peak[peak < trough[-1]]
+        
+        sequence = [zero_x[0],peak[0],zero_x[1],trough[0],zero_x[2]]
+        sequence = np.all(np.diff (sequence) >0)
+        
+        while not sequence:
+            zero_x=zero_x[1:]
+            sequence = np.all(np.diff([zero_x[0],peak[0],zero_x[1],trough[0],zero_x[2]]) > 0)
+            
+
+        shape_bool_mask = [True,False,False,True]
+    elif mode =='zero-trough':
+        # Get rid of all peaks before the first trough and all troughs after the last peak
+        trough = trough[trough < peak[-1]]
+        peak = peak[peak > trough[0]]
+
+        sequence = [zero_x[0],trough[0],zero_x[1],peak[0],zero_x[2]]
+        sequence = np.all(np.diff (sequence) >0)
+        
+        while not sequence:
+            zero_x=zero_x[1:]
+            sequence = np.all(np.diff([zero_x[0],peak[0],zero_x[1],trough[0],zero_x[2]]) > 0)
+
+        shape_bool_mask = [False,True,True,False]
+
+    indices = np.sort(np.hstack([zero_x,trough,peak]))
+
+    cycles_shape= np.array([indices[::4][:-1].shape[0],
+                            indices[1::4].shape[0],
+                            indices[2::4].shape[0],
+                            indices[3::4].shape[0],
+                            indices[::4][1:].shape[0]])
+    
+    
+    cycles = np.zeros((np.max(cycles_shape),5)).astype(int)
+
+    for i, (shape,cycle) in enumerate(zip(cycles_shape,cycles.T)):
+        if i == 0:
+            cycle[:shape]=indices[::4][:-1]     
+        elif i == range(cycles.shape[1])[-1]:
+            cycle[:shape]=indices[::4][1:]
+        else:
+            cycle[:shape]=indices[i::4]
+
+
+    sequence_check=np.all(np.diff(cycles,axis=1) > 0, axis=1)
+    shape_check = np.all((np.diff(x[cycles],axis=1) > 0) == shape_bool_mask,axis=1)
+
+    cycles_mask = np.logical_and(sequence_check,shape_check)
+    
+    cycles = cycles[cycles_mask]
+    return cycles
+
+
 def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)):
     """
     Generate a nested dictionary containing extracted data and desired metadata of each REM epochs in the input sleep
@@ -219,7 +359,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
     print(consecutive_rem_states.shape)
 
     # Intiializing variables
-    wt_spectrum = []
     rem_imf = []
     rem_mask_freq = []
     instantaneous_phase = []
@@ -263,10 +402,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
 
         print(f'Processing REM {count} ')
 
-        # Generate the time-frequency power spectrum
-        print('Generating time-frequency matrix')
-        wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
-
         # print('Generating time-frequency matrix')
         # if wavelet =='theta':
         #     wavelet_transform = morlet_wt(np.sum(imf.T[theta], axis=0),
@@ -280,8 +415,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
         #                                   mode='amplitude')
         # else:
         #     wavelet_transform = morlet_wt(signal, sample_rate, frequencies, mode='amplitude')
-
-        wt_spectrum.append(wavelet_transform)
         rem_imf.append(imf)
         rem_mask_freq.append(mask_freq)
         instantaneous_phase.append(IP)
@@ -358,7 +491,6 @@ def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)
     for j, rem in enumerate(rem_dict.values()):
         good_rem_states = consecutive_rem_states[good_rem]
         rem['start-end'] = good_rem_states[j]
-        rem['wavelet_transform'] = wt_spectrum[j]
         rem['IMFs'] = rem_imf[j]
         rem['IMF_Frequencies'] = rem_mask_freq[j]
         rem['Instantaneous Phases'] = instantaneous_phase[j]
