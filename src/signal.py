@@ -423,37 +423,114 @@ class SignalProcessor:
         self._tonic = value
 
 class SegmentSignalProcessor(SignalProcessor):
+    """
+    A class for processing segmented signals and extracting features.
+
+    Inherits from SignalProcessor.
+
+    Attributes:
+        signal (np.ndarray): The input signal.
+        period (np.ndarray): The period of the segmented signal.
+        sample_rate (float): The sample rate of the signal.
+        freq_range (tuple): The frequency range of interest.
+
+    Front-End Attributes:
+        imf (np.ndarray): Intrinsic Mode Functions.
+        mask_freq (np.ndarray): Mask frequency.
+        IP: Instantaneous phase.
+        IF: Instantaneous frequency.
+        IA: Instantaneous amplitude.
+        theta (np.ndarray): Theta signal.
+        cycles: Cycles of the signal.
+        phasic: Phasic periods.
+        tonic: Tonic periods.
+
+    Back-End Attributes:
+        _imf (np.ndarray): Intrinsic Mode Functions.
+        _mask_freq (np.ndarray): Mask frequency.
+        _IP: Instantaneous phase.
+        _IF: Instantaneous frequency.
+        _IA: Instantaneous amplitude.
+        _theta (np.ndarray): Theta signal.
+        _cycles: Cycles of the signal.
+        _spike_df: DataFrame containing spike information.
+        _phasic: Phasic periods.
+        _tonic: Tonic periods.
+    """
     def __init__(self, signal: np.ndarray, period: np.ndarray, sample_rate: float, freq_range: tuple, ):
+        """
+        Initializes the SegmentSignalProcessor class.
+
+        Args:
+            signal (np.ndarray): The input signal.
+            period (np.ndarray): The period of the segmented signal.
+            sample_rate (float): The sample rate of the signal.
+            freq_range (tuple): The frequency range of interest.
+        """
         super().__init__(signal, sample_rate, freq_range)
         self.period = period
 
     def get_duration(self) -> np.ndarray:
+        """
+        Calculates the duration of the segmented signal.
+
+        Returns:
+            np.ndarray: The duration of each sample in milliseconds.
+        """
         time = self.period/self.sample_rate
         duration = np.linspace(time[0],time[1],len(self.signal))*1000
         return duration
 
     def get_cycles(self,mode='peak'):
+        """
+        Get cycles of the segmented theta signal
+
+        Args:
+            mode (str): Cycle output mode. Default is "peak"
+
+        Returns:
+            np.ndarray: Cycles array, default is peak-centred.
+        """    
         cycles = super().get_cycles(mode = mode) + self.period[0]
         self._cycles = cycles
         return cycles
 
     def get_phasic_states(self):
+        """
+        Gets phasic states of the segmented signal.
+
+        Returns:
+            np.ndarray: Array containing phasic period information.
+        """      
         phasic_states = super().get_phasic_states() + self.period[0]
         self._phasic = phasic_states
         return phasic_states
 
     def get_tonic_states(self):
+        """
+        Gets tonic states of the segmented signal.
+
+        Returns:
+            np.ndarray: Array containing tonic period information.
+        """
         tonic_states = super().get_tonic_states() + self.period[0]
         self._tonic = tonic_states
         return tonic_states
 
     def spike_df(self):
+        """
+        Computes spike features of the segmented signal and returns a DataFrame.
+        """
         spike_df = super().spike_df()
         spike_df[['sample_last_trough', 'sample_next_trough']] += self.period[0]
         self._spike_df = spike_df
         return spike_df
 
     def peak_center_of_gravity(self):
+        """
+        Calculates the peak center of gravity values from FPP plots of our cycles.
+        """
+
         frequencies = np.arange(20,141,1)
         angles = angles=np.linspace(-180,180,19)
         sub_theta = tg_split(self.mask_freq, self.freq_range)[2]
