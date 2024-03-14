@@ -16,7 +16,56 @@ from icecream import ic
 
 
 class SignalProcessor:
+    """
+    A class for processing signals and extracting features.
+    This class has two modes of operation, a back-end and front-end.
+
+    The functions that process the intermediate features for further process populate the back-end values.
+    
+    The front-end values populate their slots with back-end values if they are empty, and can be overwritten
+    by values the user has calculated through different operations.
+
+    The functions that call on these values will use the front-end values first which can be populated with back-end
+    processed values or manually user-fed values.
+
+    Attributes:
+        signal (np.ndarray): The input signal.
+        sample_rate (float): The sample rate of the signal.
+        freq_range (tuple): The frequency range of interest.
+
+    Front-End Attributes:
+        imf (np.ndarray): Intrinsic Mode Functions.
+        mask_freq (np.ndarray): Mask frequency.
+        IP: Instantaneous phase.
+        IF: Instantaneous frequency.
+        IA: Instantaneous amplitude.
+        theta (np.ndarray): Theta signal.
+        cycles: Cycles of the signal.
+        phasic: Phasic periods.
+        tonic: Tonic periods.
+
+    Back-End Attributes:
+        _imf (np.ndarray): Intrinsic Mode Functions.
+        _mask_freq (np.ndarray): Mask frequency.
+        _IP: Instantaneous phase.
+        _IF: Instantaneous frequency.
+        _IA: Instantaneous amplitude.
+        _theta (np.ndarray): Theta signal.
+        _cycles: Cycles of the signal.
+        _spike_df: DataFrame containing spike information.
+        _phasic: Phasic periods.
+        _tonic: Tonic periods.
+    """
+
     def __init__(self,signal: np.ndarray, sample_rate: float,freq_range: tuple):
+        """
+        Initializes the SignalProcessor class.
+
+        Args:
+            signal (np.ndarray): The input signal.
+            sample_rate (float): The sample rate of the signal.
+            freq_range (tuple): The frequency range of interest.
+        """
         self.signal = signal
         self.sample_rate = sample_rate
         self.freq_range = freq_range
@@ -47,6 +96,13 @@ class SignalProcessor:
 
     
     def get_duration(self) -> np.ndarray:
+        """
+        Calculates the duration of the signal.
+
+        Returns:
+            np.ndarray: The duration of each sample in milliseconds.
+        """
+
         duration = np.linspace(0,len(self.signal)/self.sample_rate,len(self.signal))*1000
         return duration
     
@@ -63,12 +119,23 @@ class SignalProcessor:
     
 
     def iter_sift(self,**kwargs) -> tuple:
+        """
+        Performs an iterated mask sift on the signal.
+
+        Returns:
+            tuple: Tuple containing intrinsic mode functions and mask frequency.
+        """
+
         self._imf,self._mask_freq =sift.iterated_mask_sift(self.signal,
                                                         sample_rate=self.sample_rate,
                                                         ret_mask_freq=True)
         return self._imf,self._mask_freq
 
     def frequency_transform(self):
+        """
+        Transform the calculated imfs into a tuple of Instantaneous Phase, Instantaneous Frequency, Instantaneous Amplitude
+        """
+
         if  (getattr(self,'_imf') is None) or (getattr(self,'_mask_freq') is None):
             self._imf,self._mask_freq = self.iter_sift()
         self._IP, self._IF, self._IA = spectra.frequency_transform(self._imf,self.sample_rate,'nht')
@@ -76,6 +143,13 @@ class SignalProcessor:
         return self._IP, self._IP, self._IA
 
     def split_signals(self) -> np.ndarray:
+        """
+        Split the imfs into sub-theta, theta and gamma signals
+
+        Returns:
+            np.ndarray: Returns an array of 3 signals
+        """
+        
         if(getattr(self,'imf') is None) or (getattr(self,'mask_freq') is None):
             if  (getattr(self,'_imf') is None) or (getattr(self,'_mask_freq') is None):
                 self._imf,self._mask_freq = self.iter_sift()
@@ -98,15 +172,40 @@ class SignalProcessor:
         return split_signals
 
     def get_theta(self) -> np.ndarray:
+        """
+        Get theta signal.
+
+        Returns:
+            np.ndarray: Theta signal.
+        """
+
         self._theta = self.split_signals()[1]
         return self._theta
 
     def get_cycles(self,mode='peak'):
+        """
+        Get cycles.
+
+        Args:
+            mode (str): Cycle output mode. Default is "peak"
+
+        Returns:
+            np.ndarray: Cycles array, default is peak-centred.
+        """
+
         cycles = get_cycles(self.get_theta(),mode)
         self._cycles = cycles
         return cycles
     
     def spike_df(self):
+        """
+        Compute burst spike features DataFrame.
+
+        Returns:
+            pd.DataFrame: Spike DataFrame.
+        """
+
+
         filtered_signal = filter_signal(sig=self.signal, 
                                         fs=self.sample_rate, 
                                         pass_type='lowpass',
@@ -133,6 +232,13 @@ class SignalProcessor:
         return self._spike_df
 
     def get_phasic_states(self):
+        """
+        Gets phasic states of the signal.
+
+        Returns:
+            np.ndarray: Array containing phasic period information.
+        """
+
         if (getattr(self,'_spike_df') is None) or (hasattr(self,'_spike_df') is False):
             self._spike_df = self.spike_df()
             df = self._spike_df
@@ -156,6 +262,12 @@ class SignalProcessor:
 
 
     def get_tonic_states(self):
+        """
+        Gets tonic states of the signal.
+
+        Returns:
+            np.ndarray: Array containing tonic period information.
+        """
         if (getattr(self,'_spike_df') is None) or (hasattr(self,'_spike_df') is False):
             self._spike_df = self.spike_df()
             df = self._spike_df
@@ -181,6 +293,12 @@ class SignalProcessor:
     
     #TODO: Fix duration length data type adjustability
     def apply_duration_threshold(self,duration_length:float or tuple = None):
+        """
+        Applies a duration threshold to filter cycles.
+
+        Args:
+            duration_length (float or tuple, optional): The duration threshold in milliseconds.
+        """
         if duration_length is None:
             duration_length = 1000/np.array(self.freq_range)
         if getattr(self,'cycles') is None:
@@ -198,6 +316,11 @@ class SignalProcessor:
      
 
     def peak_center_of_gravity(self):
+        """
+        Calculates the peak center of gravity values from FPP plots of our cycles.
+        """
+
+
         frequencies = np.arange(20,141,1)
         angles = angles=np.linspace(-180,180,19)
         sub_theta = tg_split(self.mask_freq, self.freq_range)[2]
