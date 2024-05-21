@@ -1,3 +1,3 @@
-folder_root: C:\Users\Abu Mohammed\Dropbox\CBD_dataset_Personal_Copy\Dataset\LFP_CBD_chronic_downsampled
+folder_root: C:\Users\abumohammed\Dropbox\CBD_dataset_Personal_Copy\Dataset\LFP_CBD_chronic_downsampled
 sample_rate: 2500
 theta_range: (5,12)
