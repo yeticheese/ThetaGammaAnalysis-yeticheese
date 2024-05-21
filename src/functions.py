@@ -27,10 +27,10 @@ def get_states(states, state_number, sample_rate):
     """
     states = np.squeeze(states)
     state_indices = np.where(states == state_number)[0]
-    rem_state_changes = np.diff(state_indices)
+    state_changes = np.diff(state_indices)
     split_indices = np.where(state_changes != 1)[0] + 1
     split_indices = np.concatenate(([0], split_indices, [len(state_indices)]))
-    consecutive_rem_states = np.empty((len(split_indices) - 1, 2))
+    consecutive_states = np.empty((len(split_indices) - 1, 2))
     for i, (start, end) in enumerate(zip(split_indices, split_indices[1:])):
         start = state_indices[start] * int(sample_rate)
         end = state_indices[end - 1] * int(sample_rate)
@@ -41,7 +41,7 @@ def get_states(states, state_number, sample_rate):
     return consecutive_states.astype(int)
 
 def get_rem_states(states, sample_rate):
-    return get_states(states, state_number=5,sample_rate)
+    return get_states(states=states, state_number=5,sample_rate=sample_rate)
 
 def morlet_wt(x, sample_rate, frequencies=np.arange(1, 200, 1), n=5, mode='complex'):
     """

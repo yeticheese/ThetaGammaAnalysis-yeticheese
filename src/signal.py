@@ -297,6 +297,31 @@ class SignalProcessor:
 
         self._cycles = cycles[duration_check_mask]
 
+    def apply_amplitude_threshold(self, mode='sleep'):
+        if getattr(self, 'cycles') is None:
+            if getattr(self, '_cycles') is None:
+                print('Back-end cycles attribute is missing')
+            else:
+                cycles = self._cycles
+        else:
+            cycles = self.cycles
+
+        sub_theta = self.split_signals()[0]
+        theta = self.split_signals()[1]
+        theta_peak_amp = theta[self.cycles[:, 2]]
+        
+        if mode == 'sleep':
+            amp_threshold = 2 * np.abs(sub_theta).std()
+            amp_threshold_mask = theta_peak_amp > amp_threshold
+            self.cycles = self.cycles[amp_threshold_mask]
+
+        elif mode == 'wake':
+            amp_threshold = np.copy(sub_theta)
+            min_theta_amp = np.median(np.abs(theta))
+            amp_threshold[amp_threshold < min_theta_amp] = min_theta_amp
+            amp_threshold_mask = theta_peak_amp >= amp_threshold[self.cycles[:, 2]]
+            self.cycles = self.cycles[amp_threshold_mask]
+
     def morlet_wt(self, band: int or str or Tuple[int, ...] = 'gamma', frequencies=(1,200), norm='zscore',mode='power'):
         frequency_vector = np.arange(frequencies[0], frequencies[1]+1, 1)
         wavelet_signal = np.empty(self.signal.shape)
@@ -312,7 +337,8 @@ class SignalProcessor:
             elif band == 'sub-theta':
                 wavelet_signal = self.split_signals()[0]
 
-        wavelet_transform = morlet_wt(x=wavelet_signal,sample_rate=self.sample_rate,frequencies=frequency_vector, mode=mode)
+        wavelet_transform = morlet_wt(x=wavelet_signal, sample_rate=self.sample_rate, frequencies=frequency_vector,
+                                      mode=mode)
 
         if norm is None:
             return wavelet_transform
@@ -321,7 +347,7 @@ class SignalProcessor:
 
     def get_fpp_cycles(self,**kwargs): # Temporary function
         wavelet_transform = self.morlet_wt(**kwargs)
-        fpp_cycles = bin_tf_to_fpp(x=self.get_duration(),power=wavelet_transform,bin_count=19)
+        fpp_cycles = bin_tf_to_fpp(x=self.cycles[:, [0, -1]], power=wavelet_transform, bin_count=19)
         return fpp_cycles
 
     def peak_center_of_gravity(self):
@@ -459,7 +485,10 @@ class SegmentSignalProcessor(SignalProcessor):
         self._spike_df = spike_df
         return spike_df
 
-    def morlet_wt(self,band:int or str or Tuple[int, ...]= 'gamma', norm='zscore'):
+    def get_fpp_cycles(self, **kwargs):
+        wavelet_transform = self.morlet_wt(**kwargs)
+        fpp_cycles = bin_tf_to_fpp(x=self.cycles[:, [0, -1]] - self.period[0],power=wavelet_transform,bin_count=19)
+        return fpp_cycles
 
     def peak_center_of_gravity(self):
         frequencies = np.arange(20, 141, 1)
@@ -517,7 +546,7 @@ class SleepSignal(SignalProcessor):
             ic('REM List provided')
         self.get_cycles()
         self.apply_duration_threshold()
-        self.apply_amplitude_threshold()
+        # self.apply_amplitude_threshold()
         self.spike_df()
 
     def get_cycles(self, mode='peak'):
@@ -535,21 +564,43 @@ class SleepSignal(SignalProcessor):
             rem.apply_duration_threshold(duration_length=duration_length)
         cycles = super().apply_duration_threshold(duration_length=duration_length)
 
-    def apply_amplitude_threshold(self):
+    def apply_amplitude_threshold(self, mode='normal'):
         sub_theta = np.array([])
+        theta = np.array([])
         theta_peak_amp = np.array([])
-        for rem in self.REM:
-            sub_theta = np.append(sub_theta, np.sum(rem.imf.T[tg_split(rem.mask_freq)[0]], axis=0))
-            theta_sig = rem.get_theta()
-            theta_peak_amp = np.append(theta_peak_amp, theta_sig[rem.cycles[:, 2] - rem.period[0]])
-        amp_threshold = 2 * sub_theta.std()
-        amp_threshold_mask = theta_peak_amp > amp_threshold
-        self.cycles = self.cycles[amp_threshold_mask]
+        sub_theta_pk_mask = np.array([])
+        if mode == 'sleep':
+            for rem in self.REM:
+                sub_theta = np.append(sub_theta, np.sum(rem.imf.T[tg_split(rem.mask_freq)[0]], axis=0))
+                theta = rem.get_theta()
+                theta_peak_amp = np.append(theta_peak_amp, theta[rem.cycles[:, 2] - rem.period[0]])
+            amp_threshold = 2 * sub_theta.std()
+            amp_threshold_mask = theta_peak_amp > amp_threshold
+            self.cycles = self.cycles[amp_threshold_mask]
 
-        for rem in self.REM:
-            theta_sig = rem.get_theta()
-            cycles_mask = theta_sig[rem.cycles[:, 2] - rem.period[0]] > amp_threshold
-            rem.cycles = rem.cycles[cycles_mask]
+            for rem in self.REM:
+                theta_sig = rem.get_theta()
+                cycles_mask = theta_sig[rem.cycles[:, 2] - rem.period[0]] > amp_threshold
+                rem.cycles = rem.cycles[cycles_mask]
+
+        elif mode == 'wake':
+            for rem in self.REM:
+                theta = np.append(theta, rem.get_theta())
+                theta_peak_amp = np.append(theta_peak_amp, rem.get_theta()[rem.cycles[:, 2] - rem.period[0]])
+            amp_threshold = np.median(np.abs(theta))
+            for rem in self.REM:
+                sub_theta_signal = rem.split_signals()[0]
+                sub_theta = np.append(sub_theta, sub_theta_signal)
+                sub_theta_peaks = sub_theta_signal[rem.cycles[:, 2] - rem.period[0]]
+                sub_theta_peaks[sub_theta_peaks < amp_threshold] = amp_threshold
+                sub_theta_pk_mask = np.append(sub_theta_pk_mask, sub_theta_peaks)
+
+                theta_sig = rem.get_theta()
+                cycles_mask = theta_sig[rem.cycles[:, 2] - rem.period[0]] >= sub_theta_peaks
+                rem.cycles = rem.cycles[cycles_mask]
+
+            amp_threshold_mask = theta_peak_amp >= sub_theta_pk_mask
+            self.cycles = self.cycles[amp_threshold_mask]
 
     def spike_df(self):
         spike_df = pd.DataFrame()
@@ -589,8 +640,7 @@ class REM_Segment(SegmentSignalProcessor):
     IP: np.ndarray = field(default_factory=lambda: np.array([]), metadata='Instaneous Power')
     IF: np.ndarray = field(default_factory=lambda: np.array([]), metadata='Instantaneous Frequency')
     IA: np.ndarray = field(default_factory=lambda: np.array([]), metadata='Instantaneous Amplitude')
-    cycles: np.ndarray = field(default_factory=lambda: np.empty((0, 5)).astype(
-        int))  # Initialize cycles with empty array using default_factory
+    cycles: np.ndarray = field(default_factory=lambda: np.empty((0, 5)).astype(int))  # Initialize cycles with empty array using default_factory
     _spike_df: pd.DataFrame = None
     tonic: np.ndarray = None
     phasic: np.ndarray = None
@@ -609,11 +659,34 @@ class REM_Segment(SegmentSignalProcessor):
         self.phasic = self.get_phasic_states()
         self.tonic = self.get_tonic_states()
 
-    # def __eq__(self, other):
-    #     if not isinstance(other, REM_Segment):
-    #         return False
-    #     attrs = ['signal', 'period', 'sample_rate', 'freq_range', 'imf', 'mask_freq', 'IP', 'IF', 'IA', 'cycles']
-    #     for attr in attrs:
-    #         if not np.array_equal(getattr(self, attr), getattr(other, attr)):
-    #             return False
-    #     return True
+@dataclass
+class WakeSignal(SignalProcessor):
+    signal: np.ndarray
+    sample_rate: float
+    freq_range: tuple
+    imf: np.ndarray = field(default_factory=lambda: np.array([]))
+    mask_freq: float = field(default_factory=lambda: np.array([]))
+    IP: np.ndarray = field(default_factory=lambda: np.array([]), metadata='Instaneous Power')
+    IF: np.ndarray = field(default_factory=lambda: np.array([]), metadata='Instantaneous Frequency')
+    IA: np.ndarray = field(default_factory=lambda: np.array([]), metadata='Instantaneous Amplitude')
+    # Initialize cycles with empty array using default_factory
+    cycles: np.ndarray = field(default_factory=lambda: np.empty((0, 5)).astype(int))
+
+    def __post_init__(self):
+        if (self.imf.size == 0) or (self.mask_freq.size == 0):
+            ic('No imf data, generating imfs....')
+            self.imf, self.mask_freq = self.iter_sift()
+            self.IP, self.IF, self.IA = self.frequency_transform()
+        if self.cycles.size == 0:
+            ic('No cycle data, extracting cycles....')
+            self.get_cycles()
+        self.apply_duration_threshold()
+        # self.apply_amplitude_threshold()
+
+    def build_dataset(self):
+        df = pd.DataFrame(self.cycles)
+        df = df.rename(columns={0: 'first_trough', 1: 'first_zero_x', 2: 'peak', 3: 'last_zero_x', 4: 'last_trough'})
+        df['sample_rate'] = self.sample_rate
+        df['peak_amplitude'] = self.signal[self.cycles[:, 2]]
+
+        return df
