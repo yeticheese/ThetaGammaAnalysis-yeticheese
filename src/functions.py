@@ -10,20 +10,20 @@ from skimage.feature import peak_local_max
 
 def get_states(states, state_number, sample_rate):
     """
-    Extract states from a binary state vector.
+        Extract states from a binary state vector.
 
-    Parameters:
-    states (numpy.ndarray): A state vector where 5 represents REM sleep and other values indicate non-REM.
-    sample_rate (int or float): The sampling rate of the data.
-    state_number: A number that corresponds to a certain state in the state vector
+        Parameters:
+        states (numpy.ndarray): A state vector where 5 represents REM sleep and other values indicate non-REM.
+        sample_rate (int or float): The sampling rate of the data.
+        state_number: A number that corresponds to a certain state in the state vector
 
-    Returns:
-    numpy.ndarray: An array of consecutive REM sleep state intervals in seconds, represented as (start, end) pairs.
+        Returns:
+        numpy.ndarray: An array of consecutive REM sleep state intervals in seconds, represented as (start, end) pairs.
 
-    Notes:
-    - This function processes a binary state vector and identifies consecutive state intervals.
-    - It calculates the start and end times of each state interval based on the provided sample rate.
-    - The resulting intervals are returned as a numpy array of (start, end) pairs in seconds.
+        Notes:
+        - This function processes a binary state vector and identifies consecutive state intervals.
+        - It calculates the start and end times of each state interval based on the provided sample rate.
+        - The resulting intervals are returned as a numpy array of (start, end) pairs in seconds.
     """
     states = np.squeeze(states)
     state_indices = np.where(states == state_number)[0]
@@ -69,25 +69,25 @@ def morlet_wt(x, sample_rate, frequencies=np.arange(1, 200, 1), n=5, mode='compl
 
 def bandpass_filter(x,sample_rate, theta_range=(5,12), order=4):
     """
-    Applies a bandpass filter to the input signal.
+        Applies a bandpass filter to the input signal.
 
-    Parameters:
-    x (numpy.ndarray): The input signal to be filtered.
-    sample_rate (float): The sampling rate of the input signal.
-    theta_range (tuple, optional): The frequency range (in Hz) for the bandpass filter.
-    Defaults to (5, 12) representing the theta frequency range.
-    order (int, optional): The order of the Butterworth filter. Defaults to 4.
+        Parameters:
+        x (numpy.ndarray): The input signal to be filtered.
+        sample_rate (float): The sampling rate of the input signal.
+        theta_range (tuple, optional): The frequency range (in Hz) for the bandpass filter.
+        Defaults to (5, 12) representing the theta frequency range.
+        order (int, optional): The order of the Butterworth filter. Defaults to 4.
 
-    Returns:
-    - array-like: The filtered signal.
+        Returns:
+        - array-like: The filtered signal.
 
-    The function calculates the Nyquist frequency based on the provided sample rate and
-    defines the low and high cutoff frequencies for the bandpass filter within the specified
-    theta_range. It then designs a Butterworth bandpass filter with the given order and applies
-    it to the input signal using the filtfilt method to avoid phase shift.
+        The function calculates the Nyquist frequency based on the provided sample rate and
+        defines the low and high cutoff frequencies for the bandpass filter within the specified
+        theta_range. It then designs a Butterworth bandpass filter with the given order and applies
+        it to the input signal using the filtfilt method to avoid phase shift.
 
-    Example:
-    >>> filtered_data = bandpass_filter(input_data, 200, theta_range=(5, 12), order=4)
+        Example:
+        >>> filtered_data = bandpass_filter(input_data, 200, theta_range=(5, 12), order=4)
     """
     nyquist = 0.5 * sample_rate
     low = theta_range[0] / nyquist
@@ -132,17 +132,17 @@ def tg_split(mask_freq, theta_range=(5, 12)):
 
 def zero_cross(x):
     """
-    Find the indices of zero-crossings in a 1D signal.
+        Find the indices of zero-crossings in a 1D signal.
 
-    Parameters:
-    x (numpy.ndarray): The input 1D signal.
+        Parameters:
+        x (numpy.ndarray): The input 1D signal.
 
-    Returns:
-    numpy.ndarray: An array of indices where zero-crossings occur in the input signal.
+        Returns:
+        numpy.ndarray: An array of indices where zero-crossings occur in the input signal.
 
-    Notes:
-    - This function identifies the indices where zero-crossings occur in a given 1D signal.
-    - It detects both rising and falling zero-crossings.
+        Notes:
+        - This function identifies the indices where zero-crossings occur in a given 1D signal.
+        - It detects both rising and falling zero-crossings.
     """
     decay = np.logical_and((x > 0)[1:], ~(x > 0)[:-1]).nonzero()[0]
     rise = np.logical_and((x <= 0)[1:], ~(x <= 0)[:-1]).nonzero()[0]
@@ -152,21 +152,21 @@ def zero_cross(x):
 
 def extrema(x):
     """
-    Find extrema (peaks, troughs) and zero crossings in a 1D signal.
+        Find extrema (peaks, troughs) and zero crossings in a 1D signal.
 
-    Parameters:
-    x (numpy.ndarray): The input 1D signal.
+        Parameters:
+        x (numpy.ndarray): The input 1D signal.
 
-    Returns:
-    tuple: A tuple containing:
-        - numpy.ndarray: Indices of zero-crossings in the input signal.
-        - numpy.ndarray: Indices of troughs in the input signal.
-        - numpy.ndarray: Indices of peaks in the input signal.
+        Returns:
+        tuple: A tuple containing:
+            - numpy.ndarray: Indices of zero-crossings in the input signal.
+            - numpy.ndarray: Indices of troughs in the input signal.
+            - numpy.ndarray: Indices of peaks in the input signal.
 
-    Notes:
-    - This function identifies and returns the indices of zero-crossings, troughs, and peaks in a given 1D signal.
-    - Zero-crossings are points where the signal crosses the zero axis.
-    - Troughs are local minima, and peaks are local maxima in the signal.
+        Notes:
+        - This function identifies and returns the indices of zero-crossings, troughs, and peaks in a given 1D signal.
+        - Zero-crossings are points where the signal crosses the zero axis.
+        - Troughs are local minima, and peaks are local maxima in the signal.
     """
     zero_xs = zero_cross(x)
     peaks = np.empty((0,)).astype(int)
@@ -250,31 +250,31 @@ def get_cycles(x, mode='peak'):
 
 def get_cycles_data(x, rem_states, sample_rate, frequencies, theta_range=(5, 12)):
     """
-    Generate a nested dictionary containing extracted data and desired metadata of each REM epochs in the input sleep
-    signal
+        Generate a nested dictionary containing extracted data and desired metadata of each REM epochs in the input sleep
+        signal
 
-    Parameters:
-    x (numpy.ndarray): The input 1D sleep signal.
-    rem_states (numpy.ndarray): A sleep state vector where 5 represents REM sleep and other values indicate non-REM.
-    sample_rate (int or float): The sampling rate of the data.
-    theta_range (tuple, optional): A tuple defining the theta frequency range (lower, upper).
-            Default is (5, 12).
+        Parameters:
+        x (numpy.ndarray): The input 1D sleep signal.
+        rem_states (numpy.ndarray): A sleep state vector where 5 represents REM sleep and other values indicate non-REM.
+        sample_rate (int or float): The sampling rate of the data.
+        theta_range (tuple, optional): A tuple defining the theta frequency range (lower, upper).
+                Default is (5, 12).
 
-    Returns:
-    rem_dict: A nested dictionary of extracted signal data and signal source metadata
+        Returns:
+        rem_dict: A nested dictionary of extracted signal data and signal source metadata
 
-    Notes:
-    - The dictionary output structure comes out as below:
-        |----REM 1
-        |    |----start_end:
-        |    |----IMFs:
-        |    |----IMF Frequencies:
-        |    |----Instantaneous Phases:
-        |    |----Instantaneous Frequencies:
-        |    |----Instantaneous Amplitudes:
-        |    |----Cycles:
-        |----REM (...)
-        |    |--------(...)
+        Notes:
+        - The dictionary output structure comes out as below:
+            |----REM 1
+            |    |----start_end:
+            |    |----IMFs:
+            |    |----IMF Frequencies:
+            |    |----Instantaneous Phases:
+            |    |----Instantaneous Frequencies:
+            |    |----Instantaneous Amplitudes:
+            |    |----Cycles:
+            |----REM (...)
+            |    |--------(...)
     """
 
     # Squeezing dimensions
@@ -461,7 +461,7 @@ def bin_tf_to_fpp(x, power, bin_count):
        - The 'x' parameter defines the time intervals, which can be a single interval or multiple intervals.
        - The 'power' parameter is the time-frequency power data to be binned.
        - The 'bin_count' parameter determines the number of bins within each time interval.
-       """
+    """
 
     if x.ndim == 1:  # Handle the case when x is of size (2)
         bin_ranges = np.arange(x[0], x[1], 1)
@@ -500,7 +500,7 @@ def calculate_cog(frequencies, angles, amplitudes, ratio):
        Notes:
        - This function calculates the Center of Gravity (CoG) of the FPP plots.
        - It can handle 2D or 3D amplitude arrays, representing either single or multiple cycles.
-       """
+    """
     angles = np.deg2rad(angles)
     cog = np.empty((0, 2))
 
@@ -539,21 +539,21 @@ def calculate_cog(frequencies, angles, amplitudes, ratio):
 
 def boxcar_smooth(x, boxcar_window):
     """
-    Apply a boxcar smoothing filter to a 1D or 2D signal.
+        Apply a boxcar smoothing filter to a 1D or 2D signal.
 
-    Parameters:
-    x (numpy.ndarray): The input signal to be smoothed.
-    boxcar_window (int or tuple): The size of the boxcar smoothing window.
-        - If int, it specifies the window size in both dimensions for a 2D signal.
-        - If tuple, it specifies the window size as (time_window, frequency_window) for a 2D signal.
+        Parameters:
+        x (numpy.ndarray): The input signal to be smoothed.
+        boxcar_window (int or tuple): The size of the boxcar smoothing window.
+            - If int, it specifies the window size in both dimensions for a 2D signal.
+            - If tuple, it specifies the window size as (time_window, frequency_window) for a 2D signal.
 
-    Returns:
-    numpy.ndarray: The smoothed signal after applying the boxcar smoothing filter.
+        Returns:
+        numpy.ndarray: The smoothed signal after applying the boxcar smoothing filter.
 
-    Notes:
-    - This function applies a boxcar smoothing filter to a 1D or 2D signal.
-    - The size of the smoothing window can be specified as an integer (square window) or a tuple (rectangular window).
-    - For 2D signals, the boxcar smoothing is applied in both the time and frequency dimensions.
+        Notes:
+        - This function applies a boxcar smoothing filter to a 1D or 2D signal.
+        - The size of the smoothing window can be specified as an integer (square window) or a tuple (rectangular window).
+        - For 2D signals, the boxcar smoothing is applied in both the time and frequency dimensions.
     """
     if x.ndim == 1:
         if boxcar_window % 2 == 0:
@@ -569,6 +569,34 @@ def boxcar_smooth(x, boxcar_window):
 
     return x_spectrum
 
+def fpp_peaks(frequencies,angles,fpp_cycles):
+    """
+        Identify the peak locations on the Frequency Phase Plots of individual cycles and map them to corresponding
+        frequencies and angles.
+
+        Parameters:
+        frequencies (array-like): An array of frequency values.
+        angles (array-like): An array of angle values.
+        fpp_cycles (list of 2D arrays): A list where each element is a 2D array representing cycles of some data.
+
+        Returns: list of 2D arrays: A list of 2D arrays where each array contains pairs of frequency and angle values
+        corresponding to the peak points in the input cycles.
+
+        Each 2D array in the returned list has shape (n_peaks, 2), where n_peaks is the number of peaks found in the
+        corresponding 2D array in fpp_cycles. The first column of each 2D array contains the frequencies of the peaks,
+        and the second column contains the angles of the peaks.
+    """
+    peaks = []
+    peak_points = []
+    for i, fpp in enumerate(fpp_cycles):
+        peak = peak_local_max(fpp, min_distance=1, threshold_abs=0)
+        peaks.append(peak)
+        fpp_value = fpp[peak[:, 0], peak[:, 1]]
+        fpp_value_rounded = np.round(fpp_value, decimals=4)
+        peak_frequencies = frequencies[peak[:, 0]]
+        peak_angles = angles[peak[:, 1]]
+        peak_points.append(np.array([peak_frequencies, peak_angles, fpp_value_rounded]).T.astype(float))
+    return peak_points
 
 def peak_cog(frequencies, angles, amplitudes, ratio):
     """
@@ -592,7 +620,7 @@ def peak_cog(frequencies, angles, amplitudes, ratio):
        peaks.
        - The CoG is then shifted to the nearest peak of Euclidean distance treating frequency as linear and phase as
        circular.
-       """
+    """
 
     def nearest_peaks(frequency, angle, amplitude, ratio):
         peak_indices = peak_local_max(amplitude, min_distance=1, threshold_abs=0)
@@ -627,23 +655,23 @@ def peak_cog(frequencies, angles, amplitudes, ratio):
 
 def max_peaks(amplitudes):
     """
-    Extract maximum peaks from amplitude distributions.
+        Extract maximum peaks from amplitude distributions.
 
-    Parameters:
-    amplitudes (numpy.ndarray): An array of magnitude values of FPP cycles, can be amplitude or power.
-        - If 2D, it represents magnitude values for multiple phase bins.
-        - If 3D, it represents magnitude values for multiple phase bins across multiple cycles.
-        - Magnitude values are only z-score normalized arrays from the original.
+        Parameters:
+        amplitudes (numpy.ndarray): An array of magnitude values of FPP cycles, can be amplitude or power.
+            - If 2D, it represents magnitude values for multiple phase bins.
+            - If 3D, it represents magnitude values for multiple phase bins across multiple cycles.
+            - Magnitude values are only z-score normalized arrays from the original.
 
-    Returns:
-    numpy.ndarray: An array with maximum peaks extracted from the input magnitudes.
-        - For 2D amplitudes: A 2D array with peak values at the same positions as the input.
-        - For 3D amplitudes: A 3D array with peak values at the same positions as the input for each cycle.
+        Returns:
+        numpy.ndarray: An array with maximum peaks extracted from the input magnitudes.
+            - For 2D amplitudes: A 2D array with peak values at the same positions as the input.
+            - For 3D amplitudes: A 3D array with peak values at the same positions as the input for each cycle.
 
-    Notes:
-    - This function extracts boundary values from FPP cycles.
-    - It can handle 2D or 3D FPP arrays, representing either single or multiple cycles.
-    - Peaks are extracted using the skimage `peak_local_max` function with specified parameters.
+        Notes:
+        - This function extracts boundary values from FPP cycles.
+        - It can handle 2D or 3D FPP arrays, representing either single or multiple cycles.
+        - Peaks are extracted using the skimage `peak_local_max` function with specified parameters.
     """
     new_fpp = np.zeros(amplitudes.shape)
     if amplitudes.ndim == 2:
@@ -664,24 +692,24 @@ def max_peaks(amplitudes):
 
 def boundary_peaks(amplitudes):
     """
-    Extract maximum peaks from amplitude distributions.
+        Extract maximum peaks from amplitude distributions.
 
-    Parameters:
-    amplitudes (numpy.ndarray): An array of magnitude values of FPP cycles, can be amplitude or power.
-        - If 2D, it represents magnitude values for multiple phase bins.
-        - If 3D, it represents magnitude values for multiple phase bins across multiple cycles.
-        - Magnitude values are only z-score normalized arrays from the original.
+        Parameters:
+        amplitudes (numpy.ndarray): An array of magnitude values of FPP cycles, can be amplitude or power.
+            - If 2D, it represents magnitude values for multiple phase bins.
+            - If 3D, it represents magnitude values for multiple phase bins across multiple cycles.
+            - Magnitude values are only z-score normalized arrays from the original.
 
-    Returns:
-    numpy.ndarray: An array with boundary values between the largest peak value and 95 percent of lowest peak value,
-     extracted from the input magnitudes.
-        - For 2D amplitudes: A 2D array with boundary values at the same positions as the input.
-        - For 3D amplitudes: A 3D array with boundary values at the same positions as the input for each cycle.
+        Returns:
+        numpy.ndarray: An array with boundary values between the largest peak value and 95 percent of lowest peak value,
+         extracted from the input magnitudes.
+            - For 2D amplitudes: A 2D array with boundary values at the same positions as the input.
+            - For 3D amplitudes: A 3D array with boundary values at the same positions as the input for each cycle.
 
-    Notes:
-    - This function extracts boundary values from FPP cycles.
-    - It can handle 2D or 3D FPP arrays, representing either single or multiple cycles.
-    - Peaks are extracted using the skimage `peak_local_max` function with specified parameters.
+        Notes:
+        - This function extracts boundary values from FPP cycles.
+        - It can handle 2D or 3D FPP arrays, representing either single or multiple cycles.
+        - Peaks are extracted using the skimage `peak_local_max` function with specified parameters.
     """
     adjusted_fpp = np.zeros(amplitudes.shape)
     if amplitudes.ndim == 2:
