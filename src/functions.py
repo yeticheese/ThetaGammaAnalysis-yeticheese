@@ -592,10 +592,10 @@ def fpp_peaks(frequencies,angles,fpp_cycles):
         peak = peak_local_max(fpp, min_distance=1, threshold_abs=0)
         peaks.append(peak)
         fpp_value = fpp[peak[:, 0], peak[:, 1]]
-        fpp_value_rounded = np.round(fpp_value, decimals=4)
+        fpp_value = np.round(fpp_value, decimals=4)
         peak_frequencies = frequencies[peak[:, 0]]
         peak_angles = angles[peak[:, 1]]
-        peak_points.append(np.array([peak_frequencies, peak_angles, fpp_value_rounded]).T.astype(float))
+        peak_points.append(np.array([peak_frequencies, peak_angles, fpp_value]).T)
     return peak_points
 
 def peak_cog(frequencies, angles, amplitudes, ratio):

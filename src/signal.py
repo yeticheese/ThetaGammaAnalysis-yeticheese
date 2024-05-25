@@ -9,7 +9,7 @@ from bycycle.features import compute_features
 from icecream import ic
 from neurodsp.filt import filter_signal
 from typing import Tuple
-from src.functions import tg_split, get_cycles, get_states, morlet_wt, bin_tf_to_fpp, peak_cog
+from src.functions import tg_split, get_cycles, get_states, morlet_wt, bin_tf_to_fpp, peak_cog, fpp_peaks
 
 
 class SignalProcessor:
@@ -350,6 +350,19 @@ class SignalProcessor:
         fpp_cycles = bin_tf_to_fpp(x=self.cycles[:, [0, -1]], power=wavelet_transform, bin_count=19)
         return fpp_cycles
 
+    def get_fpp_peaks(self, **kwargs):
+        fpp_cycles = self.get_fpp_cycles(**kwargs)
+        for kwarg, v in kwargs.items():
+            if kwarg == 'frequencies':
+                frequency_vector = np.arange(v[0], v[1]+1, 1)
+            else:
+                frequency_vector = np.arange(1, 200 + 1, 1)
+        angle_vector = np.linspace (-180,180,19)
+        peak_points = fpp_peaks(frequencies= frequency_vector, angles= angle_vector, fpp_cycles=fpp_cycles)
+        return peak_points
+
+
+
     def peak_center_of_gravity(self):
         """
         Calculates the peak center of gravity values from FPP plots of our cycles.
@@ -487,7 +500,7 @@ class SegmentSignalProcessor(SignalProcessor):
 
     def get_fpp_cycles(self, **kwargs):
         wavelet_transform = self.morlet_wt(**kwargs)
-        fpp_cycles = bin_tf_to_fpp(x=self.cycles[:, [0, -1]] - self.period[0],power=wavelet_transform,bin_count=19)
+        fpp_cycles = bin_tf_to_fpp(x=self.cycles[:, [0, -1]] - self.period[0], power=wavelet_transform,bin_count=19)
         return fpp_cycles
 
     def peak_center_of_gravity(self):
@@ -546,7 +559,7 @@ class SleepSignal(SignalProcessor):
             ic('REM List provided')
         self.get_cycles()
         self.apply_duration_threshold()
-        # self.apply_amplitude_threshold()
+        self.apply_amplitude_threshold(mode='sleep')
         self.spike_df()
 
     def get_cycles(self, mode='peak'):
@@ -562,7 +575,8 @@ class SleepSignal(SignalProcessor):
     def apply_duration_threshold(self, duration_length: float or tuple = None):
         for rem in self.REM:
             rem.apply_duration_threshold(duration_length=duration_length)
-        cycles = super().apply_duration_threshold(duration_length=duration_length)
+        super().apply_duration_threshold(duration_length=duration_length)
+
 
     def apply_amplitude_threshold(self, mode='normal'):
         sub_theta = np.array([])
@@ -609,6 +623,18 @@ class SleepSignal(SignalProcessor):
         self._spike_df = spike_df
         return spike_df
 
+    def get_fpp_cycles(self,**kwargs):
+        for kwarg,v in kwargs.items():
+            if kwarg == 'frequencies':
+                frequency_vector = np.arange(v[0], v[1]+1, 1)
+        fpp_cycles = np.empty((self.cycles.shape[0], frequency_vector.shape[0], 19)).astype(int)
+        for rem in self.REM:
+            wavelet_transform = rem.morlet_wt(**kwargs)
+            fpp_plots = bin_tf_to_fpp(x=rem.cycles[:, [0, -1]] - rem.period[0], power=wavelet_transform, bin_count=19)
+            ic(fpp_plots.shape)
+            fpp_cycles[:rem.cycles.shape[0], :, :] = fpp_plots
+        return fpp_cycles
+
     def build_dataset(self):
         df = pd.DataFrame(self.cycles)
         df = df.rename(columns={0: 'first_trough', 1: 'first_zero_x', 2: 'peak', 3: 'last_zero_x', 4: 'last_trough'})
@@ -621,10 +647,7 @@ class SleepSignal(SignalProcessor):
         for tonic_state in self.get_tonic_states():
             tonic_in_range_df = (df['first_trough'].between(*tonic_state) | df['last_trough'].between(*tonic_state))
             df.loc[tonic_in_range_df, 'phasic/tonic'] = 'tonic'
-        cog_df = pd.DataFrame()
-        for rem in self.REM:
-            cog_df = pd.concat([cog_df, pd.DataFrame(rem.peak_center_of_gravity())], axis=0, ignore_index=True)
-        df[['cog_freq', 'cog_phase']] = cog_df
+        df['fpp_peaks'] = self.get_fpp_peaks(frequencies=(15,140), band='gamma', mode='power')
 
         return df
 
@@ -681,12 +704,12 @@ class WakeSignal(SignalProcessor):
             ic('No cycle data, extracting cycles....')
             self.get_cycles()
         self.apply_duration_threshold()
-        # self.apply_amplitude_threshold()
+        self.apply_amplitude_threshold(mode='wake')
 
     def build_dataset(self):
         df = pd.DataFrame(self.cycles)
         df = df.rename(columns={0: 'first_trough', 1: 'first_zero_x', 2: 'peak', 3: 'last_zero_x', 4: 'last_trough'})
         df['sample_rate'] = self.sample_rate
         df['peak_amplitude'] = self.signal[self.cycles[:, 2]]
-
+        df['fpp_peaks'] = self.get_fpp_peaks(frequencies=(15,140), band='gamma', mode='power')
         return df

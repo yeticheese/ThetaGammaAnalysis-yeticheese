@@ -39,7 +39,7 @@ def generate_class_dict(data_dict:dict,signal:np.ndarray,sample_rate:float,freq_
 
 
 @dataclass
-class Trial(SleepSignal):
+class SleepTrial(SleepSignal):
     rat: int = field(default_factory=None)
     study_day: int = field(default_factory=None)
     condition: str = field(default_factory="")
@@ -55,6 +55,26 @@ class Trial(SleepSignal):
             df['study_day']=self.study_day
             df['condition']=self.condition
             df['trial']=self.trial
+        return df
+@dataclass
+class WakeTrial(WakeSignal):
+    rat: int = field(default_factory=None)
+    study_day: int = field(default_factory=None)
+    condition: str = field(default_factory="")
+    treatment: str = field(default_factory="")
+    trial: str = field(default_factory="")
+
+    def __post_init__(self):
+        super().__post_init__()
+
+    def build_dataset(self):
+        df = super().build_dataset()
+        if self.rat is not None:
+            df['rat'] = self.rat
+            df['study_day'] = self.study_day
+            df['condition'] = self.condition
+            df['treatment'] = self.treatment
+            df['trial'] = self.trial
         return df
 
 

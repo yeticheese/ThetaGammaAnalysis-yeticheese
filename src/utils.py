@@ -16,6 +16,34 @@ def load_config(config_path):
         cfg = yaml.safe_load(f)
     return cfg
 
+def wake_trial_data(file_path):
+    # Extracting relevant conditions from file path
+    rat_conditions = set(re.findall('Rat\d|HC|OR|OD|CON|presleep|SD\d\d|SD\d|posttrial\d|Trial\d|RGS14', file_path))
+
+    file_dict = {}
+
+    # Extracting rat number
+    rat = [re.search(r"Rat(\d+)", conditions).group(1) for conditions in rat_conditions if re.search(r"Rat(\d+)", conditions)]
+    file_dict['rat'] = int(rat[0]) if rat else None
+
+    # Extracting study day
+    study_day = [re.search(r"SD(\d{1,2})", conditions).group(1) for conditions in rat_conditions if re.search(r"SD(\d{1,2})", conditions)]
+    file_dict['study_day'] = int(study_day[0]) if study_day else None
+
+    # Extracting condition
+    condition = [conditions for conditions in rat_conditions if re.search(r'\b(?:OR|HC|OD|CON)\b', conditions)]
+    file_dict['condition'] = condition[0] if condition else None
+
+    # Extracting trial
+    trial = [trials for trials in rat_conditions if re.search(r'\b(?:posttrial\d|presleep|Trial\d)\b', trials)]
+    file_dict['trial'] = trial[0] if trial else None
+
+    # Checking if RGS14 was detected
+    treatment = [t for t in rat_conditions if re.search(r'\bRGS14\b', t)]
+    file_dict['treatment'] = 'RGS' if trial else None
+
+    return file_dict
+
 #TODO: Change Documentation
 def get_file_dict(file_path):
     """
