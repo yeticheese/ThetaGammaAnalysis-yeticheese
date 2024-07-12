@@ -44,17 +44,20 @@ class SleepTrial(SleepSignal):
     study_day: int = field(default_factory=None)
     condition: str = field(default_factory="")
     trial: str = field(default_factory="")
+    treatment: str = field(default_factory="")
 
     def __post_init__(self):
         super().__post_init__()
 
-    def build_dataset(self):
-        df = super().build_dataset()
+    def build_dataset(self, **kwargs):
+        df = super().build_dataset(**kwargs)
         if self.rat is not None:
-            df['rat']=self.rat
-            df['study_day']=self.study_day
-            df['condition']=self.condition
-            df['trial']=self.trial
+            df['rat'] = self.rat
+            df['study_day'] = self.study_day
+            df['condition'] = self.condition
+            df['treatment'] = self.treatment
+            df['trial'] = self.trial
+
         return df
 @dataclass
 class WakeTrial(WakeSignal):
@@ -67,8 +70,8 @@ class WakeTrial(WakeSignal):
     def __post_init__(self):
         super().__post_init__()
 
-    def build_dataset(self):
-        df = super().build_dataset()
+    def build_dataset(self, **kwargs):
+        df = super().build_dataset(**kwargs)
         if self.rat is not None:
             df['rat'] = self.rat
             df['study_day'] = self.study_day
