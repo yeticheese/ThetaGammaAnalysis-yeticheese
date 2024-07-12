@@ -355,10 +355,8 @@ class SignalProcessor:
         for kwarg, v in kwargs.items():
             if kwarg == 'frequencies':
                 frequency_vector = np.arange(v[0], v[1]+1, 1)
-            else:
-                frequency_vector = np.arange(1, 200 + 1, 1)
         angle_vector = np.linspace (-180,180,19)
-        peak_points = fpp_peaks(frequencies= frequency_vector, angles= angle_vector, fpp_cycles=fpp_cycles)
+        peak_points = fpp_peaks(frequencies=frequency_vector, angles= angle_vector, fpp_cycles=fpp_cycles)
         return peak_points
 
 
@@ -624,18 +622,19 @@ class SleepSignal(SignalProcessor):
         return spike_df
 
     def get_fpp_cycles(self,**kwargs):
+        ic(kwargs)
         for kwarg,v in kwargs.items():
             if kwarg == 'frequencies':
                 frequency_vector = np.arange(v[0], v[1]+1, 1)
-        fpp_cycles = np.empty((self.cycles.shape[0], frequency_vector.shape[0], 19)).astype(int)
+        fpp_cycles = np.empty((0, frequency_vector.shape[0], 19))
+        ic(fpp_cycles.shape)
         for rem in self.REM:
             wavelet_transform = rem.morlet_wt(**kwargs)
             fpp_plots = bin_tf_to_fpp(x=rem.cycles[:, [0, -1]] - rem.period[0], power=wavelet_transform, bin_count=19)
-            ic(fpp_plots.shape)
-            fpp_cycles[:rem.cycles.shape[0], :, :] = fpp_plots
+            fpp_cycles = np.vstack((fpp_cycles, fpp_plots))
         return fpp_cycles
 
-    def build_dataset(self):
+    def build_dataset(self, **kwargs):
         df = pd.DataFrame(self.cycles)
         df = df.rename(columns={0: 'first_trough', 1: 'first_zero_x', 2: 'peak', 3: 'last_zero_x', 4: 'last_trough'})
         df['sample_rate'] = self.sample_rate
@@ -647,7 +646,7 @@ class SleepSignal(SignalProcessor):
         for tonic_state in self.get_tonic_states():
             tonic_in_range_df = (df['first_trough'].between(*tonic_state) | df['last_trough'].between(*tonic_state))
             df.loc[tonic_in_range_df, 'phasic/tonic'] = 'tonic'
-        df['fpp_peaks'] = self.get_fpp_peaks(frequencies=(15,140), band='gamma', mode='power')
+        df['fpp_peaks'] = self.get_fpp_peaks(**kwargs)
 
         return df
 
@@ -706,10 +705,10 @@ class WakeSignal(SignalProcessor):
         self.apply_duration_threshold()
         self.apply_amplitude_threshold(mode='wake')
 
-    def build_dataset(self):
+    def build_dataset(self,**kwargs):
         df = pd.DataFrame(self.cycles)
         df = df.rename(columns={0: 'first_trough', 1: 'first_zero_x', 2: 'peak', 3: 'last_zero_x', 4: 'last_trough'})
         df['sample_rate'] = self.sample_rate
         df['peak_amplitude'] = self.signal[self.cycles[:, 2]]
-        df['fpp_peaks'] = self.get_fpp_peaks(frequencies=(15,140), band='gamma', mode='power')
+        df['fpp_peaks'] = self.get_fpp_peaks(**kwargs)
         return df
