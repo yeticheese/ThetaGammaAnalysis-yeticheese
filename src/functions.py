@@ -14,8 +14,8 @@ def get_states(states, state_number, sample_rate):
 
         Parameters:
         states (numpy.ndarray): A state vector where 5 represents REM sleep and other values indicate non-REM.
-        sample_rate (int or float): The sampling rate of the data.
         state_number: A number that corresponds to a certain state in the state vector
+        sample_rate (int or float): The sampling rate of the data.
 
         Returns:
         numpy.ndarray: An array of consecutive REM sleep state intervals in seconds, represented as (start, end) pairs.
@@ -35,13 +35,30 @@ def get_states(states, state_number, sample_rate):
         start = state_indices[start] * int(sample_rate)
         end = state_indices[end - 1] * int(sample_rate)
         consecutive_states[i] = np.array([start, end])
+        
     consecutive_states = np.array(consecutive_states)
     null_states_mask = np.squeeze(np.diff(consecutive_states) > 0)
     consecutive_states = consecutive_states[null_states_mask]
     return consecutive_states.astype(int)
 
 def get_rem_states(states, sample_rate):
+    """
+    Extract consecutive REM (Rapid Eye Movement) sleep states from a binary sleep state vector.
+
+    Parameters:
+    states (numpy.ndarray): A sleep state vector where 5 represents REM sleep and other values indicate non-REM.
+    sample_rate (int or float): The sampling rate of the data.
+
+    Returns:
+    numpy.ndarray: An array of consecutive REM sleep state intervals in seconds, represented as (start, end) pairs.
+
+    Notes:
+    - This function processes a binary sleep state vector and identifies consecutive REM sleep intervals.
+    - It calculates the start and end times of each REM state interval based on the provided sample rate.
+    - The resulting intervals are returned as a numpy array of (start, end) pairs in seconds.
+    """
     return get_states(states=states, state_number=5,sample_rate=sample_rate)
+
 
 def morlet_wt(x, sample_rate, frequencies=np.arange(1, 200, 1), n=5, mode='complex'):
     """
